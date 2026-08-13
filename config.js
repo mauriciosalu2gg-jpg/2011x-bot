@@ -8,9 +8,9 @@ dotenv.config();
 export const config = {
   port: process.env.PORT || 3000,
   discord: {
-    token: process.env.DISCORD_TOKEN || process.env.BOT_TOKEN,
-    clientId: process.env.DISCORD_CLIENT_ID,
-    ownerId: process.env.OWNER_DISCORD_ID,
+    token: process.env.DISCORD_TOKEN || process.env.BOT_TOKEN || process.env.DISCORD_BOT_TOKEN || process.env.TOKEN || process.env.DISCORD_SECRET_TOKEN,
+    clientId: process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || process.env.BOT_ID || process.env.APPLICATION_ID,
+    ownerId: process.env.OWNER_DISCORD_ID || process.env.OWNER_ID,
   },
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID || 'alero-company-works',

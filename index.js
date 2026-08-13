@@ -201,7 +201,14 @@ const token = String(rawToken).replace(/["']/g, '').trim();
       const data = await res.json();
       console.log(`[discord] ✓ Token válido para el bot: ${data.username}#${data.discriminator || '0'} (ID: ${data.id})`);
     } else {
-      console.error(`[discord] ❌ Error de autenticación HTTP ${res.status}: Token inválido`);
+      const errBody = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        console.error(`[discord] ⚠️ HTTP 429 (Rate Limit por IP de Render): Discord ha bloqueado temporalmente la IP pública compartida de este servidor. Reintenta en ${errBody.retry_after || 'unos'}s o cambia la región de Render.`);
+      } else if (res.status === 401) {
+        console.error(`[discord] ❌ HTTP 401 (No autorizado): El token configurado en DISCORD_TOKEN es incorrecto o fue revocado.`);
+      } else {
+        console.error(`[discord] ❌ Error HTTP ${res.status}:`, errBody.message || JSON.stringify(errBody));
+      }
     }
   } catch (err) {
     console.warn(`[discord] Diagnóstico HTTP (${err.name === 'AbortError' ? 'Timeout 5s' : err.message}). Continuando con WebSocket Gateway...`);
