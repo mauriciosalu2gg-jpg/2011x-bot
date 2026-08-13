@@ -30,15 +30,28 @@ export async function registerCommands(client) {
   const clientId = config.discord.clientId || client.user?.id;
 
   if (!token || !clientId) {
-    console.warn('[commands] Falta DISCORD_TOKEN o DISCORD_CLIENT_ID para registrar comandos slash globales.');
+    console.warn('[commands] Falta DISCORD_TOKEN o DISCORD_CLIENT_ID para registrar comandos slash.');
     return;
   }
 
   const rest = new REST({ version: '10' }).setToken(token);
   try {
-    console.log('[commands] Registrando comandos slash globales...');
+    // 1. Purgar comandos antiguos de servidores específicos (Novarito solía registrar comandos de guild)
+    if (client.guilds?.cache) {
+      for (const [guildId, guild] of client.guilds.cache) {
+        try {
+          await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [] });
+          console.log(`[commands] 🧹 Comandos antiguos de guild purgados en: ${guild.name} (${guildId})`);
+        } catch (gErr) {
+          console.warn(`[commands] No se pudieron purgar comandos de guild en ${guildId}:`, gErr.message);
+        }
+      }
+    }
+
+    // 2. Sobrescribir comandos globales únicamente con los actuales de 2011X
+    console.log('[commands] Registrando comandos globales actualizados de 2011X...');
     await rest.put(Routes.applicationCommands(clientId), { body: commandDefinitions });
-    console.log(`[commands] ✓ Comandos slash registrados con éxito (${commandDefinitions.length} comandos).`);
+    console.log(`[commands] ✓ Comandos globales registrados con éxito (${commandDefinitions.length} comandos).`);
   } catch (err) {
     console.error('[commands] Error registrando comandos slash:', err.message);
   }
@@ -52,7 +65,7 @@ export async function handleCommandInteraction(interaction) {
   if (commandName === 'ping') {
     const ping = interaction.client.ws.ping;
     await interaction.reply({
-      content: `*Sonríe desde la oscuridad...*\n-# 🩸 Mi latencia dimensional es de **${ping}ms**. ¿Crees que esa fracción de segundo te salvará de mis juegos?`,
+      content: `Mi latencia actual es de **${ping}ms**. ¿Eso es todo lo que querías saber?`,
       ephemeral: false
     });
   } else if (commandName === 'memoria') {
@@ -62,10 +75,10 @@ export async function handleCommandInteraction(interaction) {
     const preferences = mem.preferences || [];
     const topics = mem.topics || [];
     const areas = mem.areas || [];
-    const roleStatus = mem.identity?.roleStatus || 'Juguete Mortal';
+    const roleStatus = mem.identity?.roleStatus || 'Usuario';
 
-    let msg = `### 🩸 EXPEDIENTE DIMENSIONAL DE ${user.username.toUpperCase()}:\n`;
-    msg += `- **Rol en mi dimensión**: ${roleStatus}\n`;
+    let msg = `### 📋 Expediente de ${user.username.toUpperCase()}:\n`;
+    msg += `- **Estado**: ${roleStatus}\n`;
 
     if (facts.length > 0) {
       msg += `\n**📜 Hechos conocidos**:\n${facts.map((f, i) => `• ${f}`).join('\n')}\n`;
@@ -74,14 +87,14 @@ export async function handleCommandInteraction(interaction) {
       msg += `\n**🎯 Preferencias / Gustos**:\n${preferences.map((p, i) => `• ${p}`).join('\n')}\n`;
     }
     if (topics.length > 0) {
-      msg += `\n**💬 Temas registrados**:\n${topics.map(t => `• ${t.title}`).join('\n')}\n`;
+      msg += `\n**💬 Temas hablados**:\n${topics.map(t => `• ${t.title}`).join('\n')}\n`;
     }
     if (areas.length > 0) {
       msg += `\n**🏰 Áreas de interés**:\n${areas.map(a => `• ${a.name}`).join('\n')}\n`;
     }
 
     if (facts.length === 0 && preferences.length === 0 && topics.length === 0) {
-      msg += `\n*Aún no tengo registros suficientes sobre ti, pequeño mortal. Habla más en mis dominios...*`;
+      msg += `\nTodavía no tengo información guardada sobre ti. Habla más conmigo en el chat para registrar datos.`;
     }
 
     await interaction.editReply({ content: msg.trim() });
@@ -89,7 +102,7 @@ export async function handleCommandInteraction(interaction) {
     await interaction.deferReply({ ephemeral: true });
     await purgeEntireUserMemory(user.id, interaction.guildId);
     await interaction.editReply({
-      content: `*Arranca todas tus páginas de usuarios, temas, áreas e historial y las reduce a cenizas oscuras...*\n-# 🗑️ He purgado completamente tu memoria distribuida en Realtime Database. Ahora volvemos a ser extraños... por ahora.`
+      content: `He eliminado completamente toda tu memoria y datos de la base de datos.`
     });
   } else if (commandName === 'estado') {
     const uptimeSec = Math.floor(process.uptime());
@@ -99,7 +112,7 @@ export async function handleCommandInteraction(interaction) {
     const uptimeStr = `${hours}h ${mins}m ${secs}s`;
 
     await interaction.reply({
-      content: `### ⚙️ ESTADO DE 2011X BOT:\n- **Entidad**: 2011X (Outcome Memories)\n- **Uptime**: ${uptimeStr}\n- **Firebase RTDB**: ${isFirebaseReady() ? '🟢 Conectado' : '🔴 Modo Local'}\n- **Servidores Activos**: ${interaction.client.guilds.cache.size}\n- **Latencia Gateway**: ${interaction.client.ws.ping}ms`,
+      content: `### ⚙️ ESTADO DE 2011X BOT:\n- **Entidad**: 2011X\n- **Uptime**: ${uptimeStr}\n- **Firebase RTDB**: ${isFirebaseReady() ? '🟢 Conectado' : '🔴 Modo Local'}\n- **Servidores Activos**: ${interaction.client.guilds.cache.size}\n- **Latencia Gateway**: ${interaction.client.ws.ping}ms`,
       ephemeral: true
     });
   }

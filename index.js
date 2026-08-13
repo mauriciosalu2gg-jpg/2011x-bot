@@ -92,7 +92,7 @@ client.on('messageCreate', async (message) => {
     .trim();
 
   if (!cleanContent) {
-    await message.reply('*Te mira fijamente con ojos ensangrentados...*\n-# 🩸 ¿Acaso te quedaste mudo, pequeño ratón? Habla o déjame en paz en mis sombras.').catch(() => {});
+    await message.reply('¿Acaso te quedaste mudo? Habla o no me hagas perder el tiempo.').catch(() => {});
     return;
   }
 
@@ -102,7 +102,7 @@ client.on('messageCreate', async (message) => {
   const guildId = message.guild?.id || null;
 
   if (activeUsers.has(userId)) {
-    await message.reply('-# ⚠️ *¡No me satures con tus balbuceos! Espera tu turno en el juego...*').catch(() => {});
+    await message.reply('¡No me satures! Espera tu turno antes de volver a escribir.').catch(() => {});
     return;
   }
 
