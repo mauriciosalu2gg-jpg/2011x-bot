@@ -21,8 +21,8 @@ export const config = {
   ai: {
     groqApiKey: process.env.GROQ_API_KEY,
     openRouterApiKey: process.env.OPENROUTER_API_KEY,
-    memoryGroqKey: process.env.MEMORY_GROQ_KEY || process.env.GROQ_API_KEY,
-    memoryOpenRouterKey: process.env.MEMORY_OPENROUTER_KEY || process.env.OPENROUTER_API_KEY,
+    memoryGroqKey: process.env.GROQMEMORY_API_KEY || process.env.MEMORY_GROQ_KEY || process.env.GROQ_API_KEY,
+    memoryOpenRouterKey: process.env.OPENROUTERMEMORY_API_KEY || process.env.MEMORY_OPENROUTER_KEY || process.env.OPENROUTER_API_KEY,
     defaultChatModel: 'llama-3.3-70b-versatile',
     fallbackChatModel: 'meta-llama/llama-3.3-70b-instruct',
     memoryModel: 'llama-3.1-8b-instant',

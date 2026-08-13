@@ -152,13 +152,34 @@ process.on('uncaughtException', (err) => {
   console.error('[process] Uncaught Exception:', err);
 });
 
+// ── Eventos de Gateway y Diagnóstico ───────────────────────────
+client.on('error', (err) => {
+  console.error('[discord] ❌ Error en el cliente de Discord:', err);
+});
+
+client.on('shardError', (err) => {
+  console.error('[discord] ❌ Error en WebSocket Shard:', err);
+});
+
+client.on('warn', (warning) => {
+  console.warn('[discord] ⚠️ Advertencia de Discord:', warning);
+});
+
 // ── Iniciar Sesión en Discord ──────────────────────────────────
-const token = config.discord.token;
-if (!token) {
+const rawToken = config.discord.token;
+if (!rawToken) {
   console.error('[fatal] ❌ Ni DISCORD_TOKEN ni BOT_TOKEN fueron encontrados en el entorno.');
   process.exit(1);
 }
 
-client.login(token).catch(err => {
+const token = String(rawToken).replace(/["']/g, '').trim();
+console.log(`[discord] 🔐 Intentando autenticar con Discord Gateway (Token: ${token.slice(0, 8)}...)...`);
+
+client.login(token).then(() => {
+  console.log('[discord] 🔑 Token aceptado por Discord Gateway. Esperando evento READY...');
+}).catch(err => {
   console.error('[fatal] ❌ Error al iniciar sesión en Discord:', err);
+  if (err.message?.includes('disallowed intents') || err.message?.includes('Privileged')) {
+    console.error('[fatal] 💡 SOLUCIÓN: Activa los "Privileged Gateway Intents" (Message Content, Server Members) en Discord Developer Portal > Bot.');
+  }
 });
