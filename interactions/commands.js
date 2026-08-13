@@ -4,7 +4,7 @@
 
 import { SlashCommandBuilder, REST, Routes } from 'discord.js';
 import config from '../config.js';
-import { getUserMemory, purgeUserMemory } from '../core/memory/realtimeMemory.js';
+import { getFullDistributedMemory, purgeEntireUserMemory } from '../core/memory/realtimeMemory.js';
 import { isFirebaseReady } from '../database/firebase.js';
 
 export const commandDefinitions = [
@@ -26,7 +26,7 @@ export const commandDefinitions = [
 ].map(c => c.toJSON());
 
 export async function registerCommands(client) {
-  const token = config.discord.token;
+  const token = String(config.discord.token || '').replace(/["']/g, '').trim();
   const clientId = config.discord.clientId || client.user?.id;
 
   if (!token || !clientId) {
@@ -57,24 +57,39 @@ export async function handleCommandInteraction(interaction) {
     });
   } else if (commandName === 'memoria') {
     await interaction.deferReply({ ephemeral: true });
-    const mem = await getUserMemory(user.id);
+    const mem = await getFullDistributedMemory(user.id, interaction.guildId);
     const facts = mem.facts || [];
+    const preferences = mem.preferences || [];
+    const topics = mem.topics || [];
+    const areas = mem.areas || [];
+    const roleStatus = mem.identity?.roleStatus || 'Juguete Mortal';
 
-    if (facts.length === 0) {
-      await interaction.editReply({
-        content: `*Te observa fijamente sin pestañear...*\n-# 📜 Todavía no he recolectado suficientes datos sobre ti, pequeño mortal. Habla más en mis dominios...`
-      });
-    } else {
-      const list = facts.map((f, i) => `${i + 1}. ${f}`).join('\n');
-      await interaction.editReply({
-        content: `### 🩸 LO QUE SÉ DE TI (${user.username}):\n${list}\n\n*Todo está guardado en mi archivo dimensional... jamás lo olvides.*`
-      });
+    let msg = `### 🩸 EXPEDIENTE DIMENSIONAL DE ${user.username.toUpperCase()}:\n`;
+    msg += `- **Rol en mi dimensión**: ${roleStatus}\n`;
+
+    if (facts.length > 0) {
+      msg += `\n**📜 Hechos conocidos**:\n${facts.map((f, i) => `• ${f}`).join('\n')}\n`;
     }
+    if (preferences.length > 0) {
+      msg += `\n**🎯 Preferencias / Gustos**:\n${preferences.map((p, i) => `• ${p}`).join('\n')}\n`;
+    }
+    if (topics.length > 0) {
+      msg += `\n**💬 Temas registrados**:\n${topics.map(t => `• ${t.title}`).join('\n')}\n`;
+    }
+    if (areas.length > 0) {
+      msg += `\n**🏰 Áreas de interés**:\n${areas.map(a => `• ${a.name}`).join('\n')}\n`;
+    }
+
+    if (facts.length === 0 && preferences.length === 0 && topics.length === 0) {
+      msg += `\n*Aún no tengo registros suficientes sobre ti, pequeño mortal. Habla más en mis dominios...*`;
+    }
+
+    await interaction.editReply({ content: msg.trim() });
   } else if (commandName === 'olvidar') {
     await interaction.deferReply({ ephemeral: true });
-    await purgeUserMemory(user.id);
+    await purgeEntireUserMemory(user.id, interaction.guildId);
     await interaction.editReply({
-      content: `*Arranca las páginas de tu expediente y las reduce a cenizas oscuras...*\n-# 🗑️ He purgado tu registro en mi memoria en tiempo real. Ahora volvemos a ser extraños... por ahora.`
+      content: `*Arranca todas tus páginas de usuarios, temas, áreas e historial y las reduce a cenizas oscuras...*\n-# 🗑️ He purgado completamente tu memoria distribuida en Realtime Database. Ahora volvemos a ser extraños... por ahora.`
     });
   } else if (commandName === 'estado') {
     const uptimeSec = Math.floor(process.uptime());

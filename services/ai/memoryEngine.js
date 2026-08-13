@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-// 🧠 Memory Engine: Dedicated AI for Extracting Facts & Summaries
-// Ejecución asíncrona en segundo plano
+// 🧠 Memory Engine: Dedicated AI for Distributed Memory Extraction
+// Clasifica en: Hechos, Gustos, Temas, Áreas y Rol de Usuario
 // ═══════════════════════════════════════════════════════════════
 
 import config from '../../config.js';
 
-async function queryMemoryAI(prompt, systemInstruction = 'Eres un sintetizador de memoria contextual para un bot de Discord.') {
+async function queryMemoryAI(prompt, systemInstruction = 'Eres un extractor y sintetizador de memoria estructurada.') {
   const apiKey = config.ai.memoryGroqKey || config.ai.groqApiKey;
   if (apiKey) {
     try {
@@ -22,7 +22,7 @@ async function queryMemoryAI(prompt, systemInstruction = 'Eres un sintetizador d
             { role: 'user', content: prompt }
           ],
           temperature: 0.2,
-          max_tokens: 500,
+          max_tokens: 600,
         })
       });
       if (res.ok) {
@@ -50,7 +50,7 @@ async function queryMemoryAI(prompt, systemInstruction = 'Eres un sintetizador d
             { role: 'user', content: prompt }
           ],
           temperature: 0.2,
-          max_tokens: 500,
+          max_tokens: 600,
         })
       });
       if (res.ok) {
@@ -66,41 +66,36 @@ async function queryMemoryAI(prompt, systemInstruction = 'Eres un sintetizador d
 }
 
 /**
- * Extrae hechos relevantes, gustos o datos que el usuario haya revelado en su mensaje.
+ * Analiza el mensaje del usuario y devuelve datos categorizados en formato JSON.
  */
-export async function extractFactsWithAI(userMessage, username = 'Usuario') {
-  if (!userMessage || userMessage.length < 6) return [];
-  
-  const prompt = `Analiza el siguiente mensaje enviado por "${username}" a un bot de Discord:\n"${userMessage}"\n\nExtrae únicamente hechos reales sobre ${username} (gustos, juegos que juega, datos personales, opiniones, nombre, personalidad, etc.).\nSi no hay hechos relevantes o es solo una pregunta/saludo genérico, responde exactamente: "NINGUNO".\nSi hay hechos, lista cada hecho como una sola línea comenzando con "• ". Máximo 3 hechos.`;
+export async function analyzeAndCategorizeMemory(userMessage, username = 'Usuario') {
+  if (!userMessage || userMessage.length < 6) return null;
+
+  const prompt = `Analiza el siguiente mensaje de "${username}" en Discord:
+"${userMessage}"
+
+Extrae información en formato JSON con la siguiente estructura estricta:
+{
+  "facts": ["hecho sobre el usuario 1", "hecho 2"],
+  "preferences": ["gusto o disgusto mencionado"],
+  "topic": "título corto del tema tratado (o null)",
+  "area": "área de interés, juego o proyecto mencionado (o null)",
+  "roleStatus": "Rol de la persona (ej: Jugador de Outcome Memories, Programador, Amigo, Víctima) o null"
+}
+
+Si el mensaje no contiene datos personales o de temas nuevos, devuelve: {"facts": [], "preferences": [], "topic": null, "area": null, "roleStatus": null}.
+Devuelve SOLO el objeto JSON sin formato adicional.`;
 
   try {
-    const raw = await queryMemoryAI(prompt, 'Eres un extractor de hechos concisos en JSON/texto plano.');
-    if (!raw || raw.includes('NINGUNO')) return [];
+    const raw = await queryMemoryAI(prompt, 'Responde exclusivamente con un JSON válido.');
+    if (!raw) return null;
 
-    return raw
-      .split('\n')
-      .map(line => line.replace(/^[-*•\d\.\s]+/, '').trim())
-      .filter(line => line.length > 4 && !/ninguno|no hay/i.test(line));
-  } catch {
-    return [];
+    const cleanJson = raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    return parsed;
+  } catch (err) {
+    return null;
   }
 }
 
-/**
- * Resume una conversación larga cuando se superan los límites de mensajes.
- */
-export async function summarizeHistoryWithAI(messages = []) {
-  if (messages.length === 0) return '';
-  const conversationText = messages.map(m => `${m.role === 'user' ? 'Usuario' : '2011X'}: ${m.content}`).join('\n');
-
-  const prompt = `Resume de forma ultra compacta los puntos clave tratados en esta conversación anterior entre un usuario y 2011X:\n\n${conversationText}\n\nResumen conciso (máximo 3 oraciones):`;
-
-  try {
-    const summary = await queryMemoryAI(prompt, 'Eres un resumidor experto.');
-    return summary || '';
-  } catch {
-    return '';
-  }
-}
-
-export default { extractFactsWithAI, summarizeHistoryWithAI };
+export default { analyzeAndCategorizeMemory };

@@ -2,12 +2,12 @@
 // 🩸 2011X Discord Bot — Main Entry Point
 // ═══════════════════════════════════════════════════════════════
 
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 import config from './config.js';
 import { startWebServer } from './server.js';
 import { buildSystemPromptWithContext } from './prompt.js';
 import { generateChatResponse } from './services/ai/chatEngine.js';
-import { getUserMemory, appendUserMessage } from './core/memory/realtimeMemory.js';
+import { getFullDistributedMemory, appendConversationMessage } from './core/memory/realtimeMemory.js';
 import { processMessageInMemoryAsync } from './core/memory/memoryProcessor.js';
 import { registerCommands, handleCommandInteraction } from './interactions/commands.js';
 import { initFirebase } from './database/firebase.js';
@@ -27,6 +27,15 @@ const client = new Client({
 
 // Iniciar servidor web de inmediato para que Render apruebe el puerto $PORT
 startWebServer(client, config.port);
+
+// ── Eventos de Gateway y Diagnóstico ───────────────────────────
+client.on('shardConnecting', (id) => console.log(`[discord] ⏳ Conectando WebSocket Shard #${id}...`));
+client.on('shardReady', (id) => console.log(`[discord] ✓ WebSocket Shard #${id} lista y autenticada.`));
+client.on('shardReconnecting', (id) => console.log(`[discord] 🔄 Reconectando WebSocket Shard #${id}...`));
+client.on('shardDisconnect', (event, id) => console.warn(`[discord] ⚠️ Shard #${id} desconectada:`, event));
+client.on('shardError', (err) => console.error('[discord] ❌ Error en WebSocket Shard:', err));
+client.on('error', (err) => console.error('[discord] ❌ Error en el cliente de Discord:', err));
+client.on('warn', (warning) => console.warn('[discord] ⚠️ Advertencia de Discord:', warning));
 
 // ── Evento Ready ───────────────────────────────────────────────
 client.once('ready', async () => {
@@ -79,6 +88,7 @@ client.on('messageCreate', async (message) => {
 
   const userId = message.author.id;
   const username = message.author.username;
+  const displayName = message.member?.displayName || message.author.globalName || username;
   const guildId = message.guild?.id || null;
 
   if (activeUsers.has(userId)) {
@@ -92,19 +102,25 @@ client.on('messageCreate', async (message) => {
   try {
     await message.channel.sendTyping().catch(() => {});
 
-    // 1. Obtener memoria del usuario desde Realtime Database
-    const userMemory = await getUserMemory(userId, guildId);
+    // 1. Obtener memoria distribuida completa desde Realtime Database
+    const memory = await getFullDistributedMemory(userId, guildId);
 
-    // 2. Construir System Prompt con la personalidad 2011X y recuerdos
+    // 2. Construir System Prompt con la personalidad 2011X, hechos, gustos y temas
     const isRage = /c[aá]llate|tonto|est[uú]pido|in[uú]til|eres malo|te gano|perdedor/i.test(cleanContent);
+    const combinedFacts = [
+      ...(memory.facts || []),
+      ...(memory.preferences || []).map(p => `Gusto/Preferencia: ${p}`),
+      ...(memory.topics || []).map(t => `Tema hablado: ${t.title}`),
+    ];
+
     const systemPrompt = buildSystemPromptWithContext({
-      userFacts: userMemory.facts || [],
+      userFacts: combinedFacts,
       mood: isRage ? 'rage' : 'sadistic',
     });
 
     // 3. Estructurar el historial conversacional
     const history = [
-      ...(userMemory.messages || []).slice(-10).map(m => ({
+      ...(memory.messages || []).slice(-10).map(m => ({
         role: m.role,
         content: m.content
       })),
@@ -115,11 +131,11 @@ client.on('messageCreate', async (message) => {
     const aiResult = await generateChatResponse(history, systemPrompt);
     const responseText = aiResult.text;
 
-    // 5. Guardar en Realtime Database los mensajes
-    await appendUserMessage(userId, 'user', cleanContent, guildId);
-    await appendUserMessage(userId, 'assistant', responseText, guildId);
+    // 5. Guardar en Realtime Database el historial de conversación
+    await appendConversationMessage(userId, 'user', cleanContent, guildId);
+    await appendConversationMessage(userId, 'assistant', responseText, guildId);
 
-    // 6. Enviar respuesta en Discord (manejando límite de 2000 caracteres si es necesario)
+    // 6. Enviar respuesta en Discord
     if (responseText.length <= 1950) {
       await message.reply({ content: responseText, allowedMentions: { repliedUser: false } }).catch(async () => {
         await message.channel.send(responseText).catch(() => {});
@@ -131,8 +147,8 @@ client.on('messageCreate', async (message) => {
       }
     }
 
-    // 7. Extraer hechos en segundo plano para la memoria persistente en Realtime Database
-    processMessageInMemoryAsync(userId, cleanContent, username);
+    // 7. Extraer hechos, temas, gustos y roles en segundo plano en Realtime Database
+    processMessageInMemoryAsync(userId, cleanContent, { username, displayName });
 
   } catch (err) {
     console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
@@ -152,19 +168,6 @@ process.on('uncaughtException', (err) => {
   console.error('[process] Uncaught Exception:', err);
 });
 
-// ── Eventos de Gateway y Diagnóstico ───────────────────────────
-client.on('error', (err) => {
-  console.error('[discord] ❌ Error en el cliente de Discord:', err);
-});
-
-client.on('shardError', (err) => {
-  console.error('[discord] ❌ Error en WebSocket Shard:', err);
-});
-
-client.on('warn', (warning) => {
-  console.warn('[discord] ⚠️ Advertencia de Discord:', warning);
-});
-
 // ── Iniciar Sesión en Discord ──────────────────────────────────
 const rawToken = config.discord.token;
 if (!rawToken) {
@@ -173,13 +176,29 @@ if (!rawToken) {
 }
 
 const token = String(rawToken).replace(/["']/g, '').trim();
-console.log(`[discord] 🔐 Intentando autenticar con Discord Gateway (Token: ${token.slice(0, 8)}...)...`);
 
-client.login(token).then(() => {
-  console.log('[discord] 🔑 Token aceptado por Discord Gateway. Esperando evento READY...');
-}).catch(err => {
-  console.error('[fatal] ❌ Error al iniciar sesión en Discord:', err);
-  if (err.message?.includes('disallowed intents') || err.message?.includes('Privileged')) {
-    console.error('[fatal] 💡 SOLUCIÓN: Activa los "Privileged Gateway Intents" (Message Content, Server Members) en Discord Developer Portal > Bot.');
+async function startBot() {
+  const rest = new REST({ version: '10' }).setToken(token);
+  try {
+    console.log('[discord] 🔍 Verificando credenciales con la API REST de Discord...');
+    const botUser = await rest.get(Routes.user('@me'));
+    console.log(`[discord] ✓ Credenciales válidas para el bot: ${botUser.username} (ID: ${botUser.id})`);
+  } catch (restErr) {
+    console.error('[discord] ❌ Error verificando token con Discord REST:', restErr.message);
+    if (restErr.status === 401 || restErr.message?.includes('401')) {
+      console.error('[fatal] ❌ El DISCORD_TOKEN configurado en Render es INVÁLIDO o EXPIRÓ. Genera uno nuevo en Discord Developer Portal.');
+    }
   }
-});
+
+  console.log(`[discord] 🔐 Conectando cliente al WebSocket Gateway...`);
+  client.login(token).then(() => {
+    console.log('[discord] 🔑 Token aceptado por Discord Gateway.');
+  }).catch(err => {
+    console.error('[fatal] ❌ Error conectando a Discord Gateway:', err);
+    if (err.message?.includes('disallowed intents') || err.message?.includes('Privileged')) {
+      console.error('[fatal] 💡 SOLUCIÓN: Activa los "Privileged Gateway Intents" (Message Content, Server Members) en Discord Developer Portal > Bot.');
+    }
+  });
+}
+
+startBot();
