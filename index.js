@@ -2,6 +2,12 @@
 // 🩸 2011X Discord Bot — Main Entry Point
 // ═══════════════════════════════════════════════════════════════
 
+import dns from 'node:dns';
+// Forzar IPv4 prioritario para evitar cuelgues de red en Render/Docker
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
 import config from './config.js';
 import { startWebServer } from './server.js';
@@ -23,6 +29,10 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
   ],
   partials: [Partials.Channel, Partials.Message],
+  // Configuración de reconexión y timeouts de Gateway
+  ws: {
+    large_threshold: 50,
+  }
 });
 
 // Iniciar servidor web de inmediato para que Render apruebe el puerto $PORT
@@ -47,7 +57,7 @@ client.once('ready', async () => {
     status: 'dnd',
   });
 
-  await registerCommands(client).catch(err => {
+  registerCommands(client).catch(err => {
     console.warn('[2011x] Advertencia al registrar comandos slash:', err.message);
   });
 });
@@ -177,28 +187,33 @@ if (!rawToken) {
 
 const token = String(rawToken).replace(/["']/g, '').trim();
 
-async function startBot() {
-  const rest = new REST({ version: '10' }).setToken(token);
+// Validación HTTP ligera y sin bloqueo (timeout 5s)
+(async () => {
   try {
-    console.log('[discord] 🔍 Verificando credenciales con la API REST de Discord...');
-    const botUser = await rest.get(Routes.user('@me'));
-    console.log(`[discord] ✓ Credenciales válidas para el bot: ${botUser.username} (ID: ${botUser.id})`);
-  } catch (restErr) {
-    console.error('[discord] ❌ Error verificando token con Discord REST:', restErr.message);
-    if (restErr.status === 401 || restErr.message?.includes('401')) {
-      console.error('[fatal] ❌ El DISCORD_TOKEN configurado en Render es INVÁLIDO o EXPIRÓ. Genera uno nuevo en Discord Developer Portal.');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bot ${token}` },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      console.log(`[discord] ✓ Token válido para el bot: ${data.username}#${data.discriminator || '0'} (ID: ${data.id})`);
+    } else {
+      console.error(`[discord] ❌ Error de autenticación HTTP ${res.status}: Token inválido`);
     }
+  } catch (err) {
+    console.warn(`[discord] Diagnóstico HTTP (${err.name === 'AbortError' ? 'Timeout 5s' : err.message}). Continuando con WebSocket Gateway...`);
   }
+})();
 
-  console.log(`[discord] 🔐 Conectando cliente al WebSocket Gateway...`);
-  client.login(token).then(() => {
-    console.log('[discord] 🔑 Token aceptado por Discord Gateway.');
-  }).catch(err => {
-    console.error('[fatal] ❌ Error conectando a Discord Gateway:', err);
-    if (err.message?.includes('disallowed intents') || err.message?.includes('Privileged')) {
-      console.error('[fatal] 💡 SOLUCIÓN: Activa los "Privileged Gateway Intents" (Message Content, Server Members) en Discord Developer Portal > Bot.');
-    }
-  });
-}
-
-startBot();
+console.log(`[discord] 🔐 Conectando cliente al WebSocket Gateway...`);
+client.login(token).then(() => {
+  console.log('[discord] 🔑 Token aceptado por Discord Gateway.');
+}).catch(err => {
+  console.error('[fatal] ❌ Error conectando a Discord Gateway:', err);
+  if (err.message?.includes('disallowed intents') || err.message?.includes('Privileged')) {
+    console.error('[fatal] 💡 SOLUCIÓN: Activa los "Privileged Gateway Intents" (Message Content, Server Members) en Discord Developer Portal > Bot.');
+  }
+});
