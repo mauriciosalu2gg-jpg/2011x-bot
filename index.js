@@ -220,10 +220,14 @@ client.on('messageCreate', async (message) => {
     // 3. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
     const roll = Math.random();
     let lengthMode = 'medium'; // 50% chance
-    if (roll < 0.25) {
-      lengthMode = 'short'; // 25% chance
-    } else if (roll > 0.75) {
-      lengthMode = 'long'; // 25% chance
+    if (cleanContent.length < 35 || cleanContent.split(/\s+/).length <= 5) {
+      lengthMode = 'short'; // Mensajes cortos del usuario reciben respuesta corta y directa
+    } else {
+      if (roll < 0.35) {
+        lengthMode = 'short';
+      } else if (roll > 0.80) {
+        lengthMode = 'long';
+      }
     }
 
     const isRage = /c[aá]llate|tonto|est[uú]pido|in[uú]til|eres malo|te gano|perdedor/i.test(cleanContent);
