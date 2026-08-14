@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // 📚 Enciclopedia Exhaustiva de Outcome Memories (Roblox / 1sobbe)
-// Mecánicas, Matchups, Bugs, Glitches, Trucos, Soluciones y Meta
+// Mecánicas, Matchups, Bugs, Glitches, Trucos, Soluciones, Audio, Lore y Meta
 // ═══════════════════════════════════════════════════════════════
 
 export const OUTCOME_MEMORIES_KNOWLEDGE = `
@@ -10,6 +10,33 @@ export const OUTCOME_MEMORIES_KNOWLEDGE = `
 - **Salida / Green Ring**: Aparece a las **1:20 (80 segundos restantes)** en un spawn aleatorio (excepto en *You Can't Run*, donde se abren todas las compuertas de la fábrica).
 - **LMS (Last Man Standing)**: Se activa cuando queda **1 solo superviviente vivo**. Otorga buffs de velocidad, más salud y reducción de tiempos de recarga (cooldowns reducidos), con música tensa dedicada.
 - **Sistema de Física**: Sin barra de estamina clásica. Se basa en aceleración, verticalidad y el uso exacto de **i-frames (invincibility frames / cuadros de invulnerabilidad)**.
+
+---
+
+#### 🔊 AUDIO, SOUND CUES, MÚSICA Y EFECTOS SONOROS:
+- **Sonido del Green Ring**: Un timbre / resonancia dimensional agudo que se escucha globalmente en todo el mapa a las 1:20 avisando la apertura del portal de escape.
+- **Sound Cues de 2011X**:
+  * *Trickery (Invisibilidad)*: Emite una risa amortiguada y distorsión sonora estática antes de desaparecer.
+  * *Charge (Carga)*: Ráfaga de aire cortante y rugido demoníaco mientras avanza.
+  * *Rage Mode (Furia)*: Grito sádico ("Found you!") y música pesada con distorsión cuando se llena la barra de ira.
+- **Sound Cues de Fleetway**: Zumbido eléctrico de energía caótica continuo en el aire que permite a los survivors rastrear su posición sin verlo.
+- **Sound Cues de Tripwire**: Pitidos metálicos discretos cuando una mina es armada o cuando un hilo láser es atravesado.
+- **Música de Overtime / Fase 80s**: La banda sonora acelera su tempo y se vuelve más agresiva alertando del peligro inminente.
+
+---
+
+#### 🏆 BADGES, LOGROS Y HITOS DE LA COMUNIDAD:
+- **Last Hope / LMS Escape**: Escapar por el Green Ring siendo el último sobreviviente en pie.
+- **Flawless Extermination (Wipeout)**: El Executioner elimina a todos los supervivientes antes de que el reloj marque las 1:20.
+- **Master of Defense**: Superviviente que conecta múltiples stuns críticos al ejecutor y salva a compañeros en una sola partida.
+- **Survivor Specialist**: Desbloqueado al dominar el timing de i-frames y rutas de escape sin recibir daño.
+
+---
+
+#### 🌌 LORE DEL PURGATORIO Y RELACIONES ENTRE PERSONAJES:
+- **El Purgatorio del Vacío**: Una dimensión distorsionada creada por 2011X donde múltiples líneas temporales de Mobius convergen para alimentar sus sádicos juegos de cacería.
+- **La Alianza Desesperada**: El Dr. Eggman se ve obligado a luchar codo a codo con Sonic y los héroes, llegando al extremo de reprogramar a **Metal Sonic** para que actúe como un guardaespaldas sacrificable que protege a los survivors más débiles (como Cream y Tails).
+- **La Rivalidad 2011X vs Sonic**: 2011X desprecia la arrogancia heroica de Sonic y disfruta castigando a los jugadores que confían ciegamente en su Drop Dash.
 
 ---
 
