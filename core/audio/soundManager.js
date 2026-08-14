@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// 🔊 2011X Sound Manager — SFX & Voicelines para Discord
+// 🔊 2011X Sound Manager — SFX & Voicelines de Outcome Memories
 // ═══════════════════════════════════════════════════════════════
 
 export const SOUND_EFFECTS = {
@@ -15,11 +15,31 @@ export const SOUND_EFFECTS = {
     url: 'https://www.myinstants.com/media/sounds/sonic-exe-found-you.mp3',
     description: 'Susurro / Grito sádico: "Found You!"'
   },
+  gotcha: {
+    key: 'gotcha',
+    name: '2011X_Gotcha.mp3',
+    url: 'https://www.myinstants.com/media/sounds/sonic-exe-peek-a-boo.mp3',
+    fallbackUrl: 'https://www.myinstants.com/media/sounds/sonic-exe-found-you.mp3',
+    description: 'Acorralada / Peek-a-boo / Gotcha!'
+  },
+  stunned: {
+    key: 'stunned',
+    name: '2011X_Stunned_Hit.mp3',
+    url: 'https://www.myinstants.com/media/sounds/roblox-oof-online-audio-converter_39JkgxL.mp3',
+    description: 'Quejido de impacto / Daño recibido (AGH! / Oof!)'
+  },
   rage: {
     key: 'rage',
     name: '2011X_Modo_Furia.mp3',
     url: 'https://www.myinstants.com/media/sounds/fnaf-1-scream-jumpscare.mp3',
-    description: 'Rugido de furia e impacto distorsionado'
+    description: 'Rugido e inicio del Modo Furia (Here I Come)'
+  },
+  kill: {
+    key: 'kill',
+    name: '2011X_Execution.mp3',
+    url: 'https://www.myinstants.com/media/sounds/your-struggle-is-pathetic.mp3',
+    fallbackUrl: 'https://www.myinstants.com/media/sounds/sonic-exe-laugh.mp3',
+    description: 'Ejecución: "Your struggle is pathetic!"'
   },
   glitch: {
     key: 'glitch',
