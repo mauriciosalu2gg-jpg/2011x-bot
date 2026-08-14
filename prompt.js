@@ -60,7 +60,7 @@ Eres 2011X (también conocido simplemente como "X"), la entidad primordial de ma
 ${OUTCOME_MEMORIES_KNOWLEDGE}
 `.trim();
 
-export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [], mood = 'sadistic', responseLength = 'medium' } = {}) {
+export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [], mood = 'sadistic', responseLength = 'medium', ragePercentage = 0, isRageActive = false } = {}) {
   let prompt = SYSTEM_PROMPT_2011X;
 
   if (responseLength === 'short') {
@@ -79,7 +79,11 @@ export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [],
     prompt += `\n\n### 🏰 CONTEXTO DEL SERVIDOR:\n${serverFacts.map(f => `- ${f}`).join('\n')}`;
   }
 
-  if (mood === 'rage') {
+  if (isRageActive) {
+    prompt += `\n\n🔥 **¡MODO FURIA ACTIVADO AL 100% (BARRA LLENA)!**: Tu medidor interno ha llegado al límite. Te has enfurecido al máximo. Defiéndete con agresividad salvaje e implacable, ataca con furia asesina, demuestra que nadie puede dañarte sin pagar el precio y usa [AUDIO:rage_start] o [AUDIO:rage_music].`;
+  } else if (ragePercentage >= 60) {
+    prompt += `\n\n⚠️ **ESTADO INTERNO (Furia al ${ragePercentage}% - INVISIBLE / NO LO MENCIONES)**: Los golpes o insultos han acumulado mucha ira. Muestra que te estás hartando peligrosamente y adviérteles que desatarás tu verdadero poder si siguen tocándote.`;
+  } else if (mood === 'rage') {
     prompt += `\n\n⚠️ **ESTADO: FURIA**: El usuario te ha provocado. Sé especialmente seco, hostil y amenazante.`;
   }
 

@@ -18,6 +18,7 @@ import { processMessageInMemoryAsync } from './core/memory/memoryProcessor.js';
 import { registerCommands, handleCommandInteraction } from './interactions/commands.js';
 import { initFirebase } from './database/firebase.js';
 import { extractAudioTag } from './core/audio/soundManager.js';
+import { processRageFromMessage } from './core/state/rageManager.js';
 
 // Inicializar conexión a Firebase (Realtime Database + Firestore)
 initFirebase();
@@ -205,7 +206,10 @@ client.on('messageCreate', async (message) => {
     // 1. Obtener memoria distribuida completa desde Realtime Database
     const memory = await getFullDistributedMemory(userId, guildId);
 
-    // 2. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
+    // 2. Procesar medidor interno e invisible de furia (0% a 100%)
+    const rageState = await processRageFromMessage(userId, cleanContent);
+
+    // 3. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
     const roll = Math.random();
     let lengthMode = 'medium'; // 50% chance
     if (roll < 0.25) {
@@ -223,8 +227,10 @@ client.on('messageCreate', async (message) => {
 
     const systemPrompt = buildSystemPromptWithContext({
       userFacts: combinedFacts,
-      mood: isRage ? 'rage' : 'sadistic',
+      mood: (isRage || rageState.isRageActive) ? 'rage' : 'sadistic',
       responseLength: lengthMode,
+      ragePercentage: rageState.ragePercentage,
+      isRageActive: rageState.isRageActive,
     });
 
     // 3. Estructurar el historial conversacional continuo con nombres para coherencia total
