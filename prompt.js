@@ -28,8 +28,16 @@ Eres 2011X (también conocido simplemente como "X"), la entidad primordial de ma
 ${OUTCOME_MEMORIES_KNOWLEDGE}
 `.trim();
 
-export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [], mood = 'sadistic' } = {}) {
+export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [], mood = 'sadistic', responseLength = 'medium' } = {}) {
   let prompt = SYSTEM_PROMPT_2011X;
+
+  if (responseLength === 'short') {
+    prompt += `\n\n📏 **DIRECTRIZ DE LONGITUD (Modo Corto - 25% chance)**: Responde en 1 o 2 oraciones breves, secas y cortantes.`;
+  } else if (responseLength === 'long') {
+    prompt += `\n\n📏 **DIRECTRIZ DE LONGITUD (Modo Largo/Detallado - 25% chance)**: Puedes explayarte más con un párrafo desarrollado, explicaciones o intimidación más elaborada.`;
+  } else {
+    prompt += `\n\n📏 **DIRECTRIZ DE LONGITUD (Modo Medio/Balanceado - 50% chance)**: Responde con longitud moderada y natural (2 a 3 oraciones bien equilibradas con sarcasmo y actitud).`;
+  }
 
   if (userFacts.length > 0) {
     prompt += `\n\n### 🧠 MEMORIA DEL USUARIO:\n${userFacts.map(f => `- ${f}`).join('\n')}\n*Úsalo de forma sutil y directa para burlarte o recordar sus datos en la charla.*`;
@@ -40,7 +48,7 @@ export function buildSystemPromptWithContext({ userFacts = [], serverFacts = [],
   }
 
   if (mood === 'rage') {
-    prompt += `\n\n⚠️ **ESTADO: FURIA**: El usuario te ha provocado. Sé especialmente seco, hostil y amenazante en 1 sola frase.`;
+    prompt += `\n\n⚠️ **ESTADO: FURIA**: El usuario te ha provocado. Sé especialmente seco, hostil y amenazante.`;
   }
 
   return prompt;

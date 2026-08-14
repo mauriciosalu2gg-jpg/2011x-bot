@@ -188,7 +188,15 @@ client.on('messageCreate', async (message) => {
     // 1. Obtener memoria distribuida completa desde Realtime Database
     const memory = await getFullDistributedMemory(userId, guildId);
 
-    // 2. Construir System Prompt con la personalidad 2011X, hechos, gustos y temas
+    // 2. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
+    const roll = Math.random();
+    let lengthMode = 'medium'; // 50% chance
+    if (roll < 0.25) {
+      lengthMode = 'short'; // 25% chance
+    } else if (roll > 0.75) {
+      lengthMode = 'long'; // 25% chance
+    }
+
     const isRage = /c[aá]llate|tonto|est[uú]pido|in[uú]til|eres malo|te gano|perdedor/i.test(cleanContent);
     const combinedFacts = [
       ...(memory.facts || []),
@@ -199,6 +207,7 @@ client.on('messageCreate', async (message) => {
     const systemPrompt = buildSystemPromptWithContext({
       userFacts: combinedFacts,
       mood: isRage ? 'rage' : 'sadistic',
+      responseLength: lengthMode,
     });
 
     // 3. Estructurar el historial conversacional continuo con nombres para coherencia total
