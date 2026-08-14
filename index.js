@@ -146,7 +146,6 @@ async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
 }
 
 // ── Procesamiento de Mensajes y Deduplicación ──────────────────
-const activeUsers = new Set();
 const processedMessageIds = new Set();
 
 client.on('messageCreate', async (message) => {
@@ -201,19 +200,16 @@ client.on('messageCreate', async (message) => {
   const displayName = message.member?.displayName || message.author.globalName || username;
   const guildId = message.guild?.id || null;
 
-  if (activeUsers.has(userId)) {
-    await message.reply('¡No me satures! Espera tu turno antes de volver a escribir.').catch(() => {});
-    return;
-  }
-
-  activeUsers.add(userId);
-  const timeoutGuard = setTimeout(() => activeUsers.delete(userId), 30000);
+  console.log(`[messageCreate] 📨 Mensaje de ${displayName} (${userId}) en servidor ${guildId || 'DM'}: "${cleanContent}"`);
 
   try {
     await message.channel.sendTyping().catch(() => {});
 
     // 1. Obtener memoria distribuida completa desde Realtime Database
-    const memory = await getFullDistributedMemory(userId, guildId);
+    const memory = await getFullDistributedMemory(userId, guildId).catch(err => {
+      console.warn('[memory] Error obteniendo memoria, usando fallback:', err.message);
+      return { facts: [], preferences: [], topics: [], messages: [] };
+    });
 
     // 2. Procesar medidor interno e invisible de furia (0% a 100%, boost grupal y duración de 1 min)
     const rageState = await processRageFromMessage(userId, cleanContent, guildId);
@@ -281,9 +277,6 @@ client.on('messageCreate', async (message) => {
       const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('(El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...) [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     }
-  } finally {
-    clearTimeout(timeoutGuard);
-    activeUsers.delete(userId);
   }
 });
 

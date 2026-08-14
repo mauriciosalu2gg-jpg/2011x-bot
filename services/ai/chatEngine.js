@@ -115,7 +115,10 @@ export async function generateChatResponse(messages, systemPrompt, temperature =
   for (const key of groqKeys) {
     for (const model of groqModels) {
       const result = await tryGroqModel(key, model, messages, systemPrompt, temperature);
-      if (result) return result;
+      if (result) {
+        console.log(`[chatEngine] ⚡ Proveedor seleccionado con éxito: ${result.provider}`);
+        return result;
+      }
     }
   }
 
@@ -133,10 +136,14 @@ export async function generateChatResponse(messages, systemPrompt, temperature =
   for (const key of openRouterKeys) {
     for (const freeModel of freeModels) {
       const openRouterResult = await tryOpenRouterModel(key, freeModel, messages, systemPrompt, temperature);
-      if (openRouterResult) return openRouterResult;
+      if (openRouterResult) {
+        console.log(`[chatEngine] ⚡ Proveedor seleccionado (OpenRouter): ${openRouterResult.provider}`);
+        return openRouterResult;
+      }
     }
   }
 
+  console.error('[chatEngine] ❌ Todos los proveedores (Groq y OpenRouter) agotaron su cuota o fallaron.');
   throw new Error('RATE_LIMIT_ALL_PROVIDERS');
 }
 
