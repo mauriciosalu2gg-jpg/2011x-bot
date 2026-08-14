@@ -206,8 +206,8 @@ client.on('messageCreate', async (message) => {
     // 1. Obtener memoria distribuida completa desde Realtime Database
     const memory = await getFullDistributedMemory(userId, guildId);
 
-    // 2. Procesar medidor interno e invisible de furia (0% a 100%)
-    const rageState = await processRageFromMessage(userId, cleanContent);
+    // 2. Procesar medidor interno e invisible de furia (0% a 100%, boost grupal y duración de 1 min)
+    const rageState = await processRageFromMessage(userId, cleanContent, guildId);
 
     // 3. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
     const roll = Math.random();
