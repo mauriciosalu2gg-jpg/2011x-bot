@@ -17,6 +17,7 @@ import { getFullDistributedMemory, appendConversationMessage } from './core/memo
 import { processMessageInMemoryAsync } from './core/memory/memoryProcessor.js';
 import { registerCommands, handleCommandInteraction } from './interactions/commands.js';
 import { initFirebase } from './database/firebase.js';
+import { extractAudioTag } from './core/audio/soundManager.js';
 
 // Inicializar conexión a Firebase (Realtime Database + Firestore)
 initFirebase();
@@ -71,12 +72,15 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ── Función de Envío con Animación de Escritura (Terminal Typewriter) ──
-async function sendAnimatedTypewriterMessage(message, fullText) {
+// ── Función de Envío con Animación de Escritura y Audio Reproducible ──
+async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
   if (!fullText || fullText.length > 1950) {
     const chunks = (fullText || '').match(/[\s\S]{1,1900}/g) || [fullText];
     for (const chunk of chunks) {
       await message.channel.send(chunk).catch(() => {});
+    }
+    if (sound) {
+      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
     }
     return;
   }
@@ -90,11 +94,17 @@ async function sendAnimatedTypewriterMessage(message, fullText) {
 
     if (!sent) {
       await message.channel.send(fullText).catch(() => {});
+      if (sound) {
+        await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+      }
       return;
     }
 
     await new Promise(r => setTimeout(r, 260));
     await sent.edit(fullText).catch(() => {});
+    if (sound) {
+      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+    }
     return;
   }
 
@@ -109,6 +119,9 @@ async function sendAnimatedTypewriterMessage(message, fullText) {
 
   if (!sent) {
     await message.channel.send(fullText).catch(() => {});
+    if (sound) {
+      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+    }
     return;
   }
 
@@ -117,6 +130,10 @@ async function sendAnimatedTypewriterMessage(message, fullText) {
 
   await new Promise(r => setTimeout(r, 300));
   await sent.edit(fullText).catch(() => {});
+
+  if (sound) {
+    await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+  }
 }
 
 // ── Procesamiento de Mensajes y Deduplicación ──────────────────
@@ -221,14 +238,17 @@ client.on('messageCreate', async (message) => {
 
     // 4. Generar respuesta con la IA Principal
     const aiResult = await generateChatResponse(history, systemPrompt);
-    const responseText = aiResult.text;
+    const rawResponseText = aiResult.text;
+
+    // Extraer etiquetas de audio si existen ([AUDIO:laugh], [AUDIO:found_you], etc.)
+    const { cleanText: responseText, sound } = extractAudioTag(rawResponseText);
 
     // 5. Guardar en Realtime Database el historial de conversación con nombres
     await appendConversationMessage(userId, 'user', cleanContent, guildId, displayName || username);
     await appendConversationMessage(userId, 'assistant', responseText, guildId, '2011X');
 
-    // 6. Enviar respuesta animada con efecto de escritura de terminal
-    await sendAnimatedTypewriterMessage(message, responseText);
+    // 6. Enviar respuesta animada con efecto de escritura de terminal y audio adjunto si aplica
+    await sendAnimatedTypewriterMessage(message, responseText, sound);
 
     // 7. Extraer hechos, temas, gustos y roles en segundo plano en Realtime Database
     processMessageInMemoryAsync(userId, cleanContent, { username, displayName });
