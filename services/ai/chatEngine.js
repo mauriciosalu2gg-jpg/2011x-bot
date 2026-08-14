@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-// 🧠 Chat Engine: Primary AI for Discord Conversations
-// Prioridad: Groq (Llama 3.3 70B) -> Fallback: OpenRouter
+// 🧠 Chat Engine: Dynamic Multi-Provider AI Cascade
+// Cascada: Groq 70B -> Groq 8B Balanced -> OpenRouter Free Tier
 // ═══════════════════════════════════════════════════════════════
 
 import config from '../../config.js';
 
-async function fetchWithTimeout(url, options, timeoutMs = 15000) {
+async function fetchWithTimeout(url, options, timeoutMs = 12000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -18,102 +18,115 @@ async function fetchWithTimeout(url, options, timeoutMs = 15000) {
   }
 }
 
-async function askGroq(messages, systemPrompt, temperature = 0.75) {
+async function tryGroqModel(model, messages, systemPrompt, temperature = 0.75) {
   const apiKey = config.ai.groqApiKey;
-  if (!apiKey) throw new Error('GROQ_API_KEY no está configurada');
+  if (!apiKey) return null;
 
   const fullMessages = [
     { role: 'system', content: systemPrompt },
     ...messages
   ];
 
-  const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: config.ai.defaultChatModel || 'llama-3.3-70b-versatile',
-      messages: fullMessages,
-      temperature,
-      max_tokens: 1024,
-    })
-  }, 12000);
+  try {
+    const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: fullMessages,
+        temperature,
+        max_tokens: 600,
+      })
+    }, 10000);
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Groq API Error HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content?.trim();
+      if (text) {
+        return { text, provider: `Groq (${model})` };
+      }
+    } else {
+      const errText = await res.text().catch(() => '');
+      console.warn(`[chatEngine] Groq (${model}) HTTP ${res.status}: ${errText.slice(0, 150)}`);
+    }
+  } catch (err) {
+    console.warn(`[chatEngine] Groq (${model}) Error:`, err.message);
   }
-
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error('Groq devolvió una respuesta vacía');
-
-  return { text, provider: 'Groq', model: config.ai.defaultChatModel };
+  return null;
 }
 
-async function askOpenRouter(messages, systemPrompt, temperature = 0.75) {
+async function tryOpenRouterModel(model, messages, systemPrompt, temperature = 0.75) {
   const apiKey = config.ai.openRouterApiKey;
-  if (!apiKey) throw new Error('OPENROUTER_API_KEY no está configurada');
+  if (!apiKey) return null;
 
   const fullMessages = [
     { role: 'system', content: systemPrompt },
     ...messages
   ];
 
-  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'HTTP-Referer': 'https://github.com/mauriciosalu2gg-jpg/2011x-bot',
-      'X-Title': '2011X Discord Bot',
-    },
-    body: JSON.stringify({
-      model: config.ai.fallbackChatModel || 'meta-llama/llama-3.3-70b-instruct',
-      messages: fullMessages,
-      temperature,
-      max_tokens: 1024,
-    })
-  }, 15000);
+  try {
+    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://github.com/mauriciosalu2gg-jpg/2011x-bot',
+        'X-Title': '2011X Discord Bot',
+      },
+      body: JSON.stringify({
+        model,
+        messages: fullMessages,
+        temperature,
+        max_tokens: 600,
+      })
+    }, 12000);
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`OpenRouter API Error HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content?.trim();
+      if (text) {
+        return { text, provider: `OpenRouter (${model})` };
+      }
+    } else {
+      const errText = await res.text().catch(() => '');
+      console.warn(`[chatEngine] OpenRouter (${model}) HTTP ${res.status}: ${errText.slice(0, 150)}`);
+    }
+  } catch (err) {
+    console.warn(`[chatEngine] OpenRouter (${model}) Error:`, err.message);
   }
-
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error('OpenRouter devolvió una respuesta vacía');
-
-  return { text, provider: 'OpenRouter', model: config.ai.fallbackChatModel };
+  return null;
 }
 
 /**
- * Consulta a la IA principal con fallback automático.
+ * Consulta dinámica con cascada automática multi-modelo y multi-proveedor.
  */
 export async function generateChatResponse(messages, systemPrompt, temperature = 0.75) {
-  // 1. Intentar con Groq (alta velocidad, baja latencia)
-  if (config.ai.groqApiKey) {
-    try {
-      return await askGroq(messages, systemPrompt, temperature);
-    } catch (err) {
-      console.warn(`[chatEngine] Fallo en Groq (${err.message}). Reintentando con OpenRouter...`);
-    }
+  // 1. Groq Principal (Llama 3.3 70B)
+  const groqPrimary = await tryGroqModel(config.ai.primaryGroqModel || 'llama-3.3-70b-versatile', messages, systemPrompt, temperature);
+  if (groqPrimary) return groqPrimary;
+
+  // 2. Groq Balanceado / Rápido (Llama 3.1 8B Instantáneo)
+  const groqBalanced = await tryGroqModel(config.ai.balancedGroqModel || 'llama-3.1-8b-instant', messages, systemPrompt, temperature);
+  if (groqBalanced) return groqBalanced;
+
+  // 3. OpenRouter Cascada de Modelos Gratuitos (100% Free Tier)
+  const freeModels = config.ai.openRouterFreeModels || [
+    'openrouter/free',
+    'meta-llama/llama-3.1-8b-instruct:free',
+    'mistralai/mistral-7b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'qwen/qwen-2.5-7b-instruct:free'
+  ];
+
+  for (const freeModel of freeModels) {
+    const openRouterResult = await tryOpenRouterModel(freeModel, messages, systemPrompt, temperature);
+    if (openRouterResult) return openRouterResult;
   }
 
-  // 2. Fallback a OpenRouter
-  if (config.ai.openRouterApiKey) {
-    try {
-      return await askOpenRouter(messages, systemPrompt, temperature);
-    } catch (err) {
-      console.error(`[chatEngine] Fallo en OpenRouter (${err.message})`);
-      throw err;
-    }
-  }
-
-  throw new Error('No hay proveedores de IA disponibles (configura GROQ_API_KEY u OPENROUTER_API_KEY)');
+  throw new Error('Todos los proveedores de IA alcanzaron su límite temporal. Reintenta en unos momentos.');
 }
 
 export default { generateChatResponse };

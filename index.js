@@ -119,11 +119,17 @@ async function sendAnimatedTypewriterMessage(message, fullText) {
   await sent.edit(fullText).catch(() => {});
 }
 
-// ── Procesamiento de Mensajes ──────────────────────────────────
+// ── Procesamiento de Mensajes y Deduplicación ──────────────────
 const activeUsers = new Set();
+const processedMessageIds = new Set();
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
+
+  // Deduplicación estricta por ID de mensaje
+  if (processedMessageIds.has(message.id)) return;
+  processedMessageIds.add(message.id);
+  setTimeout(() => processedMessageIds.delete(message.id), 120000);
 
   // 1. REGLA ESTRICTA: Ignorar totalmente menciones masivas (@everyone / @here)
   if (message.mentions.everyone || /@(?:everyone|here)\b/.test(message.content)) {

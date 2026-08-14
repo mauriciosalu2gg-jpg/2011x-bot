@@ -23,8 +23,15 @@ export const config = {
     openRouterApiKey: process.env.OPENROUTER_API_KEY,
     memoryGroqKey: process.env.GROQMEMORY_API_KEY || process.env.MEMORY_GROQ_KEY || process.env.GROQ_API_KEY,
     memoryOpenRouterKey: process.env.OPENROUTERMEMORY_API_KEY || process.env.MEMORY_OPENROUTER_KEY || process.env.OPENROUTER_API_KEY,
-    defaultChatModel: 'llama-3.3-70b-versatile',
-    fallbackChatModel: 'meta-llama/llama-3.3-70b-instruct',
+    primaryGroqModel: 'llama-3.3-70b-versatile',
+    balancedGroqModel: 'llama-3.1-8b-instant',
+    openRouterFreeModels: [
+      'openrouter/free',
+      'meta-llama/llama-3.1-8b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'google/gemma-2-9b-it:free',
+      'qwen/qwen-2.5-7b-instruct:free'
+    ],
     memoryModel: 'llama-3.1-8b-instant',
   }
 };

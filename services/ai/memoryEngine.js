@@ -44,7 +44,7 @@ async function queryMemoryAI(prompt, systemInstruction = 'Eres un extractor y si
           'Authorization': `Bearer ${openRouterKey}`,
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.1-8b-instruct',
+          model: 'meta-llama/llama-3.1-8b-instruct:free',
           messages: [
             { role: 'system', content: systemInstruction },
             { role: 'user', content: prompt }
