@@ -8,7 +8,7 @@ if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-import { Client, GatewayIntentBits, Partials, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, Partials, REST, Routes, ChannelType } from 'discord.js';
 import config from './config.js';
 import { startWebServer } from './server.js';
 import { buildSystemPromptWithContext } from './prompt.js';
@@ -125,12 +125,31 @@ const activeUsers = new Set();
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
+  // 1. REGLA ESTRICTA: Ignorar totalmente menciones masivas (@everyone / @here)
+  if (message.mentions.everyone || /@(?:everyone|here)\b/.test(message.content)) {
+    return;
+  }
+
+  // 2. REGLA ESTRICTA: Ignorar canales de anuncios, noticias, reglas y paneles protegidos
+  if (message.guild && message.channel) {
+    const isAnnouncementType = message.channel.type === ChannelType.GuildAnnouncement;
+    const isProtectedName = /^(?:anuncios|avisos|noticias|reglas|rules|announcements|bienvenida|welcome|changelog|importante|info-|transcripts)/i.test(message.channel.name);
+    
+    if (isAnnouncementType || isProtectedName) {
+      return;
+    }
+  }
+
   const isDM = !message.guild;
-  const isMentioned = message.mentions.has(client.user) || 
-    (message.reference && (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === client.user.id);
+  const isDirectlyMentioned = message.mentions.users.has(client.user.id);
+  const isRepliedToBot = Boolean(
+    message.reference && 
+    (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === client.user.id
+  );
   const isPrefix = /^!(?:2011x|x)\b/i.test(message.content);
 
-  if (!isDM && !isMentioned && !isPrefix) {
+  // Solo responder si fue mencionado directamente a su ID, si le respondieron o con prefijo
+  if (!isDM && !isDirectlyMentioned && !isRepliedToBot && !isPrefix) {
     return;
   }
 
