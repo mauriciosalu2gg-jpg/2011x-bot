@@ -88,34 +88,56 @@ function sanitizeBotResponse(rawText) {
     .trim();
 }
 
-// ── Función de Envío Directo y Fiable en Discord ──
+// ── Función de Envío con Animación de Escritura Fluida en Discord ──
 async function sendBotMessage(message, fullText, sound = null) {
   const cleanedText = sanitizeBotResponse(fullText);
   const soundFile = sound ? [{ attachment: sound.attachment || sound.url, name: sound.name }] : [];
 
   if (!cleanedText) return;
 
-  const payload = {
-    content: cleanedText.slice(0, 1950),
+  const finalContent = cleanedText.slice(0, 1950);
+  const len = finalContent.length;
+
+  // Si el mensaje es muy corto (menos de 15 caracteres), enviar directo
+  if (len < 15) {
+    const payload = { content: finalContent, allowedMentions: { repliedUser: false } };
+    if (soundFile.length > 0) payload.files = soundFile;
+    try {
+      await message.reply(payload);
+    } catch (err) {
+      await message.channel.send(payload).catch(() => {});
+    }
+    return;
+  }
+
+  // Paso 1: Enviar primer fragmento con cursor parpadeante (▌) y archivo de audio
+  const initialSlice = finalContent.slice(0, Math.max(4, Math.floor(len * 0.40))) + ' ▌';
+  const initialPayload = {
+    content: initialSlice,
     allowedMentions: { repliedUser: false }
   };
-
   if (soundFile.length > 0) {
-    payload.files = soundFile;
+    initialPayload.files = soundFile;
   }
 
+  let sentMsg = null;
   try {
-    await message.reply(payload);
-    console.log(`[discord] ✓ Respuesta enviada exitosamente a ${message.author.username}: "${cleanedText.slice(0, 60)}..."`);
+    sentMsg = await message.reply(initialPayload);
+    console.log(`[discord] ✓ Escribiendo respuesta a ${message.author.username}...`);
   } catch (err) {
-    console.warn(`[discord] Reply falló (${err.message}), intentando channel.send...`);
     try {
-      await message.channel.send(payload);
-      console.log(`[discord] ✓ Enviado por channel.send.`);
+      sentMsg = await message.channel.send(initialPayload);
     } catch (sendErr) {
-      console.error(`[discord] ❌ Error total enviando mensaje:`, sendErr.message);
+      console.error('[discord] ❌ Error enviando:', sendErr.message);
+      return;
     }
   }
+
+  if (!sentMsg) return;
+
+  // Paso 2: Animación fluida de tipeo a texto completo
+  await new Promise(r => setTimeout(r, 360));
+  await sentMsg.edit({ content: finalContent }).catch(() => {});
 }
 
 // ── Procesamiento de Mensajes y Deduplicación ──────────────────
