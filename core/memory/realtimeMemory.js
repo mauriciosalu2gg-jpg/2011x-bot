@@ -174,7 +174,7 @@ export async function appendUserArea(userId, area) {
 // ── 4. HISTORIAL DE CONVERSACIÓN (/memory/historial/{scope}) ───
 
 function getHistorialKey(userId, guildId) {
-  return `${userId}_${guildId || 'direct'}`;
+  return guildId ? `guild_${guildId}` : `dm_${userId}`;
 }
 
 export async function getConversationHistory(userId, guildId = null) {

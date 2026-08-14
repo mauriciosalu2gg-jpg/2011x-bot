@@ -76,7 +76,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ── Sanitizador Estricto: Cero comillas dobles y Cero acotaciones de asteriscos ──
+// ── Sanitizador Estricto: Cero comillas dobles, Cero asteriscos y Cero puntos al inicio ──
 function sanitizeBotResponse(rawText) {
   if (!rawText) return '';
   return rawText
@@ -84,6 +84,7 @@ function sanitizeBotResponse(rawText) {
     .replace(/_([^_]+)_/g, '$1') // Quita itálicas narrativas
     .replace(/"/g, '') // Quita todas las comillas dobles
     .replace(/“|”/g, '') // Quita comillas tipográficas
+    .replace(/^[\s\.\,\:\;\-]+/, '') // Quita puntos, comas o puntos suspensivos al INICIO
     .replace(/\s{2,}/g, ' ') // Quita espacios duplicados
     .trim();
 }
@@ -273,11 +274,11 @@ client.on('messageCreate', async (message) => {
 
   } catch (err) {
     if (err.message === 'RATE_LIMIT_ALL_PROVIDERS' || err.message?.includes('Rate limit') || err.message?.includes('429')) {
-      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('... (Una distorsión estática resuena en el aire y la silueta de 2011X se desvanece temporalmente entre las sombras del Vacío...) [AUDIO:glitch]');
+      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('(Una distorsión estática resuena en el aire y la presencia de 2011X se desvanece temporalmente entre las sombras del Vacío...) [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     } else {
       console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
-      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('... (El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...) [AUDIO:glitch]');
+      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('(El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...) [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     }
   } finally {
