@@ -235,9 +235,9 @@ client.on('messageCreate', async (message) => {
       isRageActive: rageState.isRageActive,
     });
 
-    // 3. Estructurar el historial conversacional continuo con nombres para coherencia total
+    // 3. Estructurar historial conversacional continuo optimizado (últimos 8 mensajes para ahorrar tokens)
     const history = [
-      ...(memory.messages || []).slice(-20).map(m => ({
+      ...(memory.messages || []).slice(-8).map(m => ({
         role: m.role,
         content: m.role === 'user' ? (m.username ? `${m.username}: ${m.content}` : m.content) : m.content
       })),
@@ -262,8 +262,14 @@ client.on('messageCreate', async (message) => {
     processMessageInMemoryAsync(userId, cleanContent, { username, displayName });
 
   } catch (err) {
-    console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
-    await message.reply(`Ocurrió un error cósmico inesperado: \`${err.message.slice(0, 100)}\``).catch(() => {});
+    if (err.message === 'RATE_LIMIT_ALL_PROVIDERS' || err.message?.includes('Rate limit') || err.message?.includes('429')) {
+      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(Una distorsión estática resuena en el aire y la silueta de 2011X se desvanece temporalmente entre las sombras del Vacío...)* [AUDIO:glitch]');
+      await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
+    } else {
+      console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
+      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...)* [AUDIO:glitch]');
+      await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
+    }
   } finally {
     clearTimeout(timeoutGuard);
     activeUsers.delete(userId);

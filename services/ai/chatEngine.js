@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
 // 🧠 Chat Engine: Dynamic Multi-Provider AI Cascade
-// Cascada: Groq 70B -> Groq 8B Balanced -> OpenRouter Free Tier
+// Cascada Ultra-Rápida con Modelos Pequeños y Fallback entre API Keys
 // ═══════════════════════════════════════════════════════════════
 
 import config from '../../config.js';
 
-async function fetchWithTimeout(url, options, timeoutMs = 12000) {
+async function fetchWithTimeout(url, options, timeoutMs = 10000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -18,8 +18,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 12000) {
   }
 }
 
-async function tryGroqModel(model, messages, systemPrompt, temperature = 0.75) {
-  const apiKey = config.ai.groqApiKey;
+async function tryGroqModel(apiKey, model, messages, systemPrompt, temperature = 0.75) {
   if (!apiKey) return null;
 
   const fullMessages = [
@@ -38,9 +37,9 @@ async function tryGroqModel(model, messages, systemPrompt, temperature = 0.75) {
         model,
         messages: fullMessages,
         temperature,
-        max_tokens: 600,
+        max_tokens: 500,
       })
-    }, 10000);
+    }, 9000);
 
     if (res.ok) {
       const data = await res.json();
@@ -58,8 +57,7 @@ async function tryGroqModel(model, messages, systemPrompt, temperature = 0.75) {
   return null;
 }
 
-async function tryOpenRouterModel(model, messages, systemPrompt, temperature = 0.75) {
-  const apiKey = config.ai.openRouterApiKey;
+async function tryOpenRouterModel(apiKey, model, messages, systemPrompt, temperature = 0.75) {
   if (!apiKey) return null;
 
   const fullMessages = [
@@ -80,9 +78,9 @@ async function tryOpenRouterModel(model, messages, systemPrompt, temperature = 0
         model,
         messages: fullMessages,
         temperature,
-        max_tokens: 600,
+        max_tokens: 500,
       })
-    }, 12000);
+    }, 10000);
 
     if (res.ok) {
       const data = await res.json();
@@ -104,15 +102,24 @@ async function tryOpenRouterModel(model, messages, systemPrompt, temperature = 0
  * Consulta dinámica con cascada automática multi-modelo y multi-proveedor.
  */
 export async function generateChatResponse(messages, systemPrompt, temperature = 0.75) {
-  // 1. Groq Principal (Llama 3.3 70B)
-  const groqPrimary = await tryGroqModel(config.ai.primaryGroqModel || 'llama-3.3-70b-versatile', messages, systemPrompt, temperature);
-  if (groqPrimary) return groqPrimary;
+  // Lista de modelos pequeños y rápidos de Groq
+  const groqModels = [
+    config.ai.primaryGroqModel || 'llama-3.1-8b-instant',
+    config.ai.fallbackGroqModel || 'gemma2-9b-it',
+    config.ai.secondaryGroqModel || 'llama-3.3-70b-versatile',
+  ];
 
-  // 2. Groq Balanceado / Rápido (Llama 3.1 8B Instantáneo)
-  const groqBalanced = await tryGroqModel(config.ai.balancedGroqModel || 'llama-3.1-8b-instant', messages, systemPrompt, temperature);
-  if (groqBalanced) return groqBalanced;
+  const groqKeys = [config.ai.groqApiKey, config.ai.memoryGroqKey].filter(Boolean);
 
-  // 3. OpenRouter Cascada de Modelos Gratuitos (100% Free Tier)
+  // 1. Probar cada modelo de Groq con la clave primaria y de respaldo
+  for (const key of groqKeys) {
+    for (const model of groqModels) {
+      const result = await tryGroqModel(key, model, messages, systemPrompt, temperature);
+      if (result) return result;
+    }
+  }
+
+  // 2. OpenRouter Cascada de Modelos Gratuitos (100% Free Tier)
   const freeModels = config.ai.openRouterFreeModels || [
     'openrouter/free',
     'meta-llama/llama-3.1-8b-instruct:free',
@@ -121,12 +128,16 @@ export async function generateChatResponse(messages, systemPrompt, temperature =
     'qwen/qwen-2.5-7b-instruct:free'
   ];
 
-  for (const freeModel of freeModels) {
-    const openRouterResult = await tryOpenRouterModel(freeModel, messages, systemPrompt, temperature);
-    if (openRouterResult) return openRouterResult;
+  const openRouterKeys = [config.ai.openRouterApiKey, config.ai.memoryOpenRouterKey].filter(Boolean);
+
+  for (const key of openRouterKeys) {
+    for (const freeModel of freeModels) {
+      const openRouterResult = await tryOpenRouterModel(key, freeModel, messages, systemPrompt, temperature);
+      if (openRouterResult) return openRouterResult;
+    }
   }
 
-  throw new Error('Todos los proveedores de IA alcanzaron su límite temporal. Reintenta en unos momentos.');
+  throw new Error('RATE_LIMIT_ALL_PROVIDERS');
 }
 
 export default { generateChatResponse };
