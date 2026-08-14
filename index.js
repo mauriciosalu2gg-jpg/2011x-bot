@@ -75,13 +75,15 @@ client.on('interactionCreate', async (interaction) => {
 
 // ── Función de Envío con Animación de Escritura y Audio Reproducible ──
 async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
+  const soundFile = sound ? [{ attachment: sound.attachment || sound.url, name: sound.name }] : [];
+
   if (!fullText || fullText.length > 1950) {
     const chunks = (fullText || '').match(/[\s\S]{1,1900}/g) || [fullText];
     for (const chunk of chunks) {
       await message.channel.send(chunk).catch(() => {});
     }
-    if (sound) {
-      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+    if (soundFile.length > 0) {
+      await message.channel.send({ files: soundFile }).catch(() => {});
     }
     return;
   }
@@ -95,16 +97,16 @@ async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
 
     if (!sent) {
       await message.channel.send(fullText).catch(() => {});
-      if (sound) {
-        await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+      if (soundFile.length > 0) {
+        await message.channel.send({ files: soundFile }).catch(() => {});
       }
       return;
     }
 
     await new Promise(r => setTimeout(r, 260));
     await sent.edit(fullText).catch(() => {});
-    if (sound) {
-      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+    if (soundFile.length > 0) {
+      await message.channel.send({ files: soundFile }).catch(() => {});
     }
     return;
   }
@@ -120,8 +122,8 @@ async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
 
   if (!sent) {
     await message.channel.send(fullText).catch(() => {});
-    if (sound) {
-      await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+    if (soundFile.length > 0) {
+      await message.channel.send({ files: soundFile }).catch(() => {});
     }
     return;
   }
@@ -132,8 +134,8 @@ async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
   await new Promise(r => setTimeout(r, 300));
   await sent.edit(fullText).catch(() => {});
 
-  if (sound) {
-    await message.channel.send({ files: [{ attachment: sound.url, name: sound.name }] }).catch(() => {});
+  if (soundFile.length > 0) {
+    await message.channel.send({ files: soundFile }).catch(() => {});
   }
 }
 
