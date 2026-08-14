@@ -1,11 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔊 2011X Sound Manager — Catálogo Maestro Oficial de Outcome Memories
-// Audios, Voicelines y Soundtracks provistos directamente del juego
+// Auto-sincronizado desde Firebase Cloud Storage y Realtime Database
 // ═══════════════════════════════════════════════════════════════
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rtdb } from '../../database/firebase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -231,12 +232,6 @@ export const SOUND_EFFECTS = {
     file: 'youlldieatmihands.mp3',
     description: 'Grito: "You\'ll die at my hands!"'
   },
-  down3: {
-    key: 'down3',
-    name: '2011X_Down_Voiceline.mp3',
-    file: '2011XDown3.mp3',
-    description: 'Voiceline de derribo'
-  },
 
   // ── 💥 GRUÑIDOS DE DAÑO Y STUN (STUN GRUNTS) ─────────────────
   stunned: {
@@ -284,6 +279,53 @@ SOUND_EFFECTS.green_ring = SOUND_EFFECTS.ring;
 SOUND_EFFECTS.glitch = { key: 'glitch', name: 'Static_Buzz.ogg', file: '2011X_Distorsion_Vacio.ogg', description: 'Distorsión estática' };
 
 /**
+ * Descarga y restaura cualquier archivo de audio faltante directamente desde Firebase RTDB.
+ */
+export async function ensureSoundAssets() {
+  if (!rtdb) return;
+
+  try {
+    const snapshot = await rtdb.ref('assets/sounds').once('value');
+    if (!snapshot.exists()) return;
+
+    const data = snapshot.val();
+    let restoredCount = 0;
+
+    for (const [key, item] of Object.entries(data)) {
+      if (!item || !item.fileName) continue;
+      const localPath = path.join(SOUNDS_DIR, item.fileName);
+
+      if (!fs.existsSync(localPath) || fs.statSync(localPath).size < 100) {
+        let b64 = '';
+        if (item.chunks) {
+          const total = item.totalChunks || Object.keys(item.chunks).length;
+          for (let i = 0; i < total; i++) {
+            b64 += item.chunks['c' + i] || '';
+          }
+        } else if (item.base64) {
+          b64 = item.base64;
+        }
+
+        if (b64) {
+          const buffer = Buffer.from(b64, 'base64');
+          fs.writeFileSync(localPath, buffer);
+          restoredCount++;
+        }
+      }
+    }
+
+    if (restoredCount > 0) {
+      console.log(`[soundManager] 🔊 ${restoredCount} archivos de audio restaurados localmente desde Firebase RTDB.`);
+    }
+  } catch (err) {
+    console.warn('[soundManager] Advertencia sincronizando audios de Firebase:', err.message);
+  }
+}
+
+// Iniciar auto-restauración de audios en segundo plano al arrancar
+ensureSoundAssets();
+
+/**
  * Detecta y extrae la etiqueta [AUDIO:nombre] del texto generado.
  */
 export function extractAudioTag(text) {
@@ -301,7 +343,7 @@ export function extractAudioTag(text) {
   let sound = null;
   if (soundConfig) {
     const fullPath = path.join(SOUNDS_DIR, soundConfig.file);
-    if (fs.existsSync(fullPath)) {
+    if (fs.existsSync(fullPath) && fs.statSync(fullPath).size > 100) {
       sound = {
         name: soundConfig.name,
         attachment: fullPath
@@ -312,4 +354,4 @@ export function extractAudioTag(text) {
   return { cleanText, sound };
 }
 
-export default { SOUND_EFFECTS, extractAudioTag };
+export default { SOUND_EFFECTS, extractAudioTag, ensureSoundAssets };

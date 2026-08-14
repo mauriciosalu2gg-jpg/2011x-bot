@@ -17,7 +17,7 @@ import { getFullDistributedMemory, appendConversationMessage } from './core/memo
 import { processMessageInMemoryAsync } from './core/memory/memoryProcessor.js';
 import { registerCommands, handleCommandInteraction } from './interactions/commands.js';
 import { initFirebase } from './database/firebase.js';
-import { extractAudioTag } from './core/audio/soundManager.js';
+import { extractAudioTag, ensureSoundAssets } from './core/audio/soundManager.js';
 import { processRageFromMessage } from './core/state/rageManager.js';
 
 // Inicializar conexión a Firebase (Realtime Database + Firestore)
@@ -59,6 +59,9 @@ client.once('ready', async () => {
     status: 'dnd',
   });
 
+  // Asegurar restauración de audios en Render
+  ensureSoundAssets().catch(() => {});
+
   registerCommands(client).catch(err => {
     console.warn('[2011x] Advertencia al registrar comandos slash:', err.message);
   });
@@ -73,70 +76,73 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ── Función de Envío con Animación de Escritura y Audio Reproducible ──
+// ── Sanitizador Estricto: Cero comillas dobles y Cero acotaciones de asteriscos ──
+function sanitizeBotResponse(rawText) {
+  if (!rawText) return '';
+  return rawText
+    .replace(/\*[^*]+\*/g, '') // Elimina *sonríe sádicamente*, *se llena de energía...*
+    .replace(/_([^_]+)_/g, '$1') // Quita itálicas narrativas
+    .replace(/"/g, '') // Quita todas las comillas dobles
+    .replace(/“|”/g, '') // Quita comillas tipográficas
+    .replace(/\s{2,}/g, ' ') // Quita espacios duplicados
+    .trim();
+}
+
+// ── Función de Envío con Animación de Escritura y Audio en UN SOLO MENSAJE ──
 async function sendAnimatedTypewriterMessage(message, fullText, sound = null) {
+  const cleanedText = sanitizeBotResponse(fullText);
   const soundFile = sound ? [{ attachment: sound.attachment || sound.url, name: sound.name }] : [];
 
-  if (!fullText || fullText.length > 1950) {
-    const chunks = (fullText || '').match(/[\s\S]{1,1900}/g) || [fullText];
-    for (const chunk of chunks) {
-      await message.channel.send(chunk).catch(() => {});
-    }
-    if (soundFile.length > 0) {
-      await message.channel.send({ files: soundFile }).catch(() => {});
+  if (!cleanedText || cleanedText.length > 1950) {
+    const chunks = (cleanedText || '').match(/[\s\S]{1,1900}/g) || [cleanedText];
+    for (let i = 0; i < chunks.length; i++) {
+      const isLast = i === chunks.length - 1;
+      await message.channel.send({
+        content: chunks[i],
+        files: isLast ? soundFile : []
+      }).catch(() => {});
     }
     return;
   }
 
-  // Textos muy cortos: 2 pasos rápidos
-  if (fullText.length < 25) {
+  // Textos muy cortos: 1 o 2 pasos rápidos en un único mensaje
+  if (cleanedText.length < 25) {
     const sent = await message.reply({
-      content: fullText.slice(0, Math.max(3, Math.floor(fullText.length / 2))) + ' ▌',
+      content: cleanedText.slice(0, Math.max(3, Math.floor(cleanedText.length / 2))) + ' ▌',
+      files: soundFile,
       allowedMentions: { repliedUser: false }
     }).catch(() => null);
 
     if (!sent) {
-      await message.channel.send(fullText).catch(() => {});
-      if (soundFile.length > 0) {
-        await message.channel.send({ files: soundFile }).catch(() => {});
-      }
+      await message.channel.send({ content: cleanedText, files: soundFile }).catch(() => {});
       return;
     }
 
     await new Promise(r => setTimeout(r, 260));
-    await sent.edit(fullText).catch(() => {});
-    if (soundFile.length > 0) {
-      await message.channel.send({ files: soundFile }).catch(() => {});
-    }
+    await sent.edit({ content: cleanedText }).catch(() => {});
     return;
   }
 
   // 3 pasos fluidos de terminal tipo máquina de escribir (28% -> 68% -> 100%)
-  const step1 = fullText.slice(0, Math.max(6, Math.floor(fullText.length * 0.28))) + ' ▌';
-  const step2 = fullText.slice(0, Math.floor(fullText.length * 0.68)) + ' ▌';
+  const step1 = cleanedText.slice(0, Math.max(6, Math.floor(cleanedText.length * 0.28))) + ' ▌';
+  const step2 = cleanedText.slice(0, Math.floor(cleanedText.length * 0.68)) + ' ▌';
 
   const sent = await message.reply({
     content: step1,
+    files: soundFile,
     allowedMentions: { repliedUser: false }
   }).catch(() => null);
 
   if (!sent) {
-    await message.channel.send(fullText).catch(() => {});
-    if (soundFile.length > 0) {
-      await message.channel.send({ files: soundFile }).catch(() => {});
-    }
+    await message.channel.send({ content: cleanedText, files: soundFile }).catch(() => {});
     return;
   }
 
   await new Promise(r => setTimeout(r, 300));
-  await sent.edit(step2).catch(() => {});
+  await sent.edit({ content: step2 }).catch(() => {});
 
   await new Promise(r => setTimeout(r, 300));
-  await sent.edit(fullText).catch(() => {});
-
-  if (soundFile.length > 0) {
-    await message.channel.send({ files: soundFile }).catch(() => {});
-  }
+  await sent.edit({ content: cleanedText }).catch(() => {});
 }
 
 // ── Procesamiento de Mensajes y Deduplicación ──────────────────
@@ -255,7 +261,7 @@ client.on('messageCreate', async (message) => {
     await appendConversationMessage(userId, 'user', cleanContent, guildId, displayName || username);
     await appendConversationMessage(userId, 'assistant', responseText, guildId, '2011X');
 
-    // 6. Enviar respuesta animada con efecto de escritura de terminal y audio adjunto si aplica
+    // 6. Enviar respuesta animada con efecto de escritura de terminal y audio adjunto en UN SOLO MENSAJE
     await sendAnimatedTypewriterMessage(message, responseText, sound);
 
     // 7. Extraer hechos, temas, gustos y roles en segundo plano en Realtime Database
@@ -263,7 +269,7 @@ client.on('messageCreate', async (message) => {
 
   } catch (err) {
     if (err.message === 'RATE_LIMIT_ALL_PROVIDERS' || err.message?.includes('Rate limit') || err.message?.includes('429')) {
-      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(Una distorsión estática resuena en el aire y la silueta de 2011X se desvanece temporalmente entre las sombras del Vacío...)* [AUDIO:glitch]');
+      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(Una distorsión estática resuena en el aire y la presencia de 2011X se desvanece temporalmente entre las sombras del Vacío...)* [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     } else {
       console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
