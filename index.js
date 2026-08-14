@@ -82,9 +82,8 @@ function sanitizeBotResponse(rawText) {
   return rawText
     .replace(/\*[^*]+\*/g, '') // Elimina *sonríe sádicamente*, *se llena de energía...*
     .replace(/_([^_]+)_/g, '$1') // Quita itálicas narrativas
-    .replace(/"/g, '') // Quita todas las comillas dobles
-    .replace(/“|”/g, '') // Quita comillas tipográficas
-    .replace(/^[\s\.\,\:\;\-]+/, '') // Quita puntos, comas o puntos suspensivos al INICIO
+    .replace(/["“”«»]/g, '') // Quita todas las comillas
+    .replace(/^[\s\.\,\:\;\-\_]+/, '') // Quita puntos, comas o guiones al INICIO
     .replace(/\s{2,}/g, ' ') // Quita espacios duplicados
     .trim();
 }
@@ -180,9 +179,10 @@ client.on('messageCreate', async (message) => {
     (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === client.user.id
   );
   const isPrefix = /^!(?:2011x|x)\b/i.test(message.content);
+  const isNameCall = /\b(?:2011x|2011-x|2011\s*x|2011)\b/i.test(message.content);
 
-  // Solo responder si fue mencionado directamente a su ID, si le respondieron o con prefijo
-  if (!isDM && !isDirectlyMentioned && !isRepliedToBot && !isPrefix) {
+  // Responder si es DM, si lo mencionaron con @, si le respondieron, si usaron prefijo, O si dijeron su nombre ("2011X" o "2011")
+  if (!isDM && !isDirectlyMentioned && !isRepliedToBot && !isPrefix && !isNameCall) {
     return;
   }
 

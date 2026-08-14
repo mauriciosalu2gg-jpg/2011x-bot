@@ -101,14 +101,21 @@ export async function processRageFromMessage(userId, messageContent, guildId = n
   }
 
   // 2. Detección de disparadores de ira
+  const isExplicitRageTrigger = /haz\s*rage|activa\s*(?:tu\s*)?furia|rage\s*mode|modo\s*furia/i.test(text);
   const isAttack = /\*(?:le\s+|te\s+)?(?:pega|golpea|dispara|acuchilla|apuñala|patea|tira|empuja|ataca|daña|corta|quema|revienta|parte|martillazo)\*|te\s+(?:pego|golpeo|disparo|apuesto|mato|parto)|drop\s*dash|spindash|martillo|chaos\s*spear/i.test(text);
   const isHeavyInsult = /c[aá]llate|est[uú]pido|in[uú]til|idiota|pendejo|mierda|puto|puta|perra|maldito|imb[eé]cil|tarado|asqueroso|basura|mu[eé]rete/i.test(text);
   const isTaunt = /eres\s+(?:d[eé]bil|malo|falso|in[uú]til)|no\s+puedes|te\s+gano|le\s+dir[eé]\s+a|miedoso|cobarde/i.test(text);
 
   let baseRage = 0;
-  if (isAttack) baseRage += 35; // Golpes llenan base 35%
-  if (isHeavyInsult) baseRage += 30; // Insultos base 30%
-  if (isTaunt) baseRage += 15; // Provocaciones base 15%
+  if (isExplicitRageTrigger) {
+    baseRage = 100;
+  } else if (isAttack) {
+    baseRage += 35; // Golpes llenan base 35%
+  } else if (isHeavyInsult) {
+    baseRage += 30; // Insultos base 30%
+  } else if (isTaunt) {
+    baseRage += 15; // Provocaciones base 15%
+  }
 
   if (baseRage > 0) {
     // Aplicar multiplicador por grupo (más personas = barra se llena más rápido)
