@@ -71,6 +71,54 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// ── Función de Envío con Animación de Escritura (Terminal Typewriter) ──
+async function sendAnimatedTypewriterMessage(message, fullText) {
+  if (!fullText || fullText.length > 1950) {
+    const chunks = (fullText || '').match(/[\s\S]{1,1900}/g) || [fullText];
+    for (const chunk of chunks) {
+      await message.channel.send(chunk).catch(() => {});
+    }
+    return;
+  }
+
+  // Textos muy cortos: 2 pasos rápidos
+  if (fullText.length < 25) {
+    const sent = await message.reply({
+      content: fullText.slice(0, Math.max(3, Math.floor(fullText.length / 2))) + ' ▌',
+      allowedMentions: { repliedUser: false }
+    }).catch(() => null);
+
+    if (!sent) {
+      await message.channel.send(fullText).catch(() => {});
+      return;
+    }
+
+    await new Promise(r => setTimeout(r, 260));
+    await sent.edit(fullText).catch(() => {});
+    return;
+  }
+
+  // 3 pasos fluidos de terminal tipo máquina de escribir (28% -> 68% -> 100%)
+  const step1 = fullText.slice(0, Math.max(6, Math.floor(fullText.length * 0.28))) + ' ▌';
+  const step2 = fullText.slice(0, Math.floor(fullText.length * 0.68)) + ' ▌';
+
+  const sent = await message.reply({
+    content: step1,
+    allowedMentions: { repliedUser: false }
+  }).catch(() => null);
+
+  if (!sent) {
+    await message.channel.send(fullText).catch(() => {});
+    return;
+  }
+
+  await new Promise(r => setTimeout(r, 300));
+  await sent.edit(step2).catch(() => {});
+
+  await new Promise(r => setTimeout(r, 300));
+  await sent.edit(fullText).catch(() => {});
+}
+
 // ── Procesamiento de Mensajes ──────────────────────────────────
 const activeUsers = new Set();
 
@@ -128,41 +176,32 @@ client.on('messageCreate', async (message) => {
       mood: isRage ? 'rage' : 'sadistic',
     });
 
-    // 3. Estructurar el historial conversacional
+    // 3. Estructurar el historial conversacional continuo con nombres para coherencia total
     const history = [
-      ...(memory.messages || []).slice(-10).map(m => ({
+      ...(memory.messages || []).slice(-20).map(m => ({
         role: m.role,
-        content: m.content
+        content: m.role === 'user' ? (m.username ? `${m.username}: ${m.content}` : m.content) : m.content
       })),
-      { role: 'user', content: cleanContent }
+      { role: 'user', content: `${displayName || username}: ${cleanContent}` }
     ];
 
     // 4. Generar respuesta con la IA Principal
     const aiResult = await generateChatResponse(history, systemPrompt);
     const responseText = aiResult.text;
 
-    // 5. Guardar en Realtime Database el historial de conversación
-    await appendConversationMessage(userId, 'user', cleanContent, guildId);
-    await appendConversationMessage(userId, 'assistant', responseText, guildId);
+    // 5. Guardar en Realtime Database el historial de conversación con nombres
+    await appendConversationMessage(userId, 'user', cleanContent, guildId, displayName || username);
+    await appendConversationMessage(userId, 'assistant', responseText, guildId, '2011X');
 
-    // 6. Enviar respuesta en Discord
-    if (responseText.length <= 1950) {
-      await message.reply({ content: responseText, allowedMentions: { repliedUser: false } }).catch(async () => {
-        await message.channel.send(responseText).catch(() => {});
-      });
-    } else {
-      const chunks = responseText.match(/[\s\S]{1,1900}/g) || [responseText];
-      for (const chunk of chunks) {
-        await message.channel.send(chunk).catch(() => {});
-      }
-    }
+    // 6. Enviar respuesta animada con efecto de escritura de terminal
+    await sendAnimatedTypewriterMessage(message, responseText);
 
     // 7. Extraer hechos, temas, gustos y roles en segundo plano en Realtime Database
     processMessageInMemoryAsync(userId, cleanContent, { username, displayName });
 
   } catch (err) {
     console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
-    await message.reply(`*Una distorsión oscura sacude la dimensión...*\n-# ❌ Ocurrió una interferencia cósmica: \`${err.message.slice(0, 100)}\``).catch(() => {});
+    await message.reply(`Ocurrió un error cósmico inesperado: \`${err.message.slice(0, 100)}\``).catch(() => {});
   } finally {
     clearTimeout(timeoutGuard);
     activeUsers.delete(userId);

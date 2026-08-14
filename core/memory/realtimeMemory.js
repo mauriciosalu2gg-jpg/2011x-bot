@@ -193,17 +193,18 @@ export async function getConversationHistory(userId, guildId = null) {
   }
 }
 
-export async function appendConversationMessage(userId, role, content, guildId = null) {
+export async function appendConversationMessage(userId, role, content, guildId = null, username = null) {
   const key = getHistorialKey(userId, guildId);
   const newMsg = {
     role,
     content,
+    ...(username ? { username } : {}),
     createdAt: new Date().toISOString()
   };
 
   const history = await getConversationHistory(userId, guildId);
   history.push(newMsg);
-  const trimmed = history.slice(-25); // Últimos 25 mensajes
+  const trimmed = history.slice(-30); // Últimos 30 mensajes para no perder el hilo
 
   if (!rtdb) {
     memoryFallback.historial.set(key, trimmed);
