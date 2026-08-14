@@ -17,7 +17,7 @@ import { getFullDistributedMemory, appendConversationMessage } from './core/memo
 import { processMessageInMemoryAsync } from './core/memory/memoryProcessor.js';
 import { registerCommands, handleCommandInteraction } from './interactions/commands.js';
 import { initFirebase } from './database/firebase.js';
-import { extractAudioTag, ensureSoundAssets } from './core/audio/soundManager.js';
+import { extractAudioTag, extractAudioTagAsync, ensureSoundAssets } from './core/audio/soundManager.js';
 import { processRageFromMessage } from './core/state/rageManager.js';
 
 // Inicializar conexión a Firebase (Realtime Database + Firestore)
@@ -254,8 +254,8 @@ client.on('messageCreate', async (message) => {
     const aiResult = await generateChatResponse(history, systemPrompt);
     const rawResponseText = aiResult.text;
 
-    // Extraer etiquetas de audio si existen ([AUDIO:laugh], [AUDIO:found_you], etc.)
-    const { cleanText: responseText, sound } = extractAudioTag(rawResponseText);
+    // Extraer etiquetas de audio con resolución asíncrona garantizada desde Firebase RTDB
+    const { cleanText: responseText, sound } = await extractAudioTagAsync(rawResponseText);
 
     // 5. Guardar en Realtime Database el historial de conversación con nombres
     await appendConversationMessage(userId, 'user', cleanContent, guildId, displayName || username);
@@ -269,11 +269,11 @@ client.on('messageCreate', async (message) => {
 
   } catch (err) {
     if (err.message === 'RATE_LIMIT_ALL_PROVIDERS' || err.message?.includes('Rate limit') || err.message?.includes('429')) {
-      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(Una distorsión estática resuena en el aire y la presencia de 2011X se desvanece temporalmente entre las sombras del Vacío...)* [AUDIO:glitch]');
+      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('... (Una distorsión estática resuena en el aire y la silueta de 2011X se desvanece temporalmente entre las sombras del Vacío...) [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     } else {
       console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
-      const { cleanText: vanishText, sound: glitchSound } = extractAudioTag('... *(El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...)* [AUDIO:glitch]');
+      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('... (El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...) [AUDIO:glitch]');
       await sendAnimatedTypewriterMessage(message, vanishText, glitchSound);
     }
   } finally {

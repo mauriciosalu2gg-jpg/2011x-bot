@@ -268,11 +268,15 @@ export const SOUND_EFFECTS = {
 
 // Aliases para máxima compatibilidad
 SOUND_EFFECTS.rage = SOUND_EFFECTS.rage_music;
+SOUND_EFFECTS.ragemode1 = SOUND_EFFECTS.rage_music;
 SOUND_EFFECTS.rage_start = SOUND_EFFECTS.ready_or_not;
 SOUND_EFFECTS.hit = SOUND_EFFECTS.stunned;
+SOUND_EFFECTS.stun = SOUND_EFFECTS.stunned;
 SOUND_EFFECTS.gotcha = SOUND_EFFECTS.caught_you;
+SOUND_EFFECTS.chase = SOUND_EFFECTS.chase_music;
 SOUND_EFFECTS.lms = SOUND_EFFECTS.chase_lastlife;
 SOUND_EFFECTS.lms_music = SOUND_EFFECTS.chase_lastlife;
+SOUND_EFFECTS.lastlife = SOUND_EFFECTS.chase_lastlife;
 SOUND_EFFECTS.kill = SOUND_EFFECTS.pathetic;
 SOUND_EFFECTS.ring = { key: 'ring', name: 'Sonic_Ring.ogg', file: 'OutcomeMemories_GreenRing_Spawn.ogg', description: 'Sonido de Ring' };
 SOUND_EFFECTS.green_ring = SOUND_EFFECTS.ring;
@@ -323,11 +327,68 @@ export async function ensureSoundAssets() {
 }
 
 // Iniciar auto-restauración de audios en segundo plano al arrancar
-ensureSoundAssets();
+setTimeout(() => ensureSoundAssets().catch(() => {}), 1500);
+
+/**
+ * Resuelve y garantiza el archivo de audio local listo para adjuntar a Discord.
+ */
+export async function resolveSoundAttachment(soundKey) {
+  if (!soundKey) return null;
+  const key = soundKey.toLowerCase().replace(/-/g, '_');
+  const soundConfig = SOUND_EFFECTS[key] || null;
+  if (!soundConfig) return null;
+
+  const fullPath = path.join(SOUNDS_DIR, soundConfig.file);
+  if (fs.existsSync(fullPath) && fs.statSync(fullPath).size > 100) {
+    return { name: soundConfig.name, attachment: fullPath };
+  }
+
+  // Si aún no está en disco local, restaurarlo bajo demanda desde Firebase en 100ms
+  if (rtdb) {
+    try {
+      const safeKey = soundConfig.file.replace(/[\.#\$\/\[\]]/g, '_');
+      const snap = await rtdb.ref('assets/sounds/' + safeKey).once('value');
+      if (snap.exists()) {
+        const item = snap.val();
+        let b64 = '';
+        if (item.chunks) {
+          const total = item.totalChunks || Object.keys(item.chunks).length;
+          for (let i = 0; i < total; i++) b64 += item.chunks['c' + i] || '';
+        } else if (item.base64) {
+          b64 = item.base64;
+        }
+        if (b64) {
+          const buf = Buffer.from(b64, 'base64');
+          fs.writeFileSync(fullPath, buf);
+          return { name: soundConfig.name, attachment: fullPath };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return null;
+}
 
 /**
  * Detecta y extrae la etiqueta [AUDIO:nombre] del texto generado.
  */
+export async function extractAudioTagAsync(text) {
+  if (!text) return { cleanText: text, sound: null };
+
+  const match = text.match(/\[AUDIO:([a-zA-Z0-9_-]+)\]/i);
+  if (!match) {
+    return { cleanText: text, sound: null };
+  }
+
+  const soundKey = match[1];
+  const cleanText = text.replace(/\[AUDIO:[a-zA-Z0-9_-]+\]/gi, '').trim();
+  const sound = await resolveSoundAttachment(soundKey);
+
+  return { cleanText, sound };
+}
+
 export function extractAudioTag(text) {
   if (!text) return { cleanText: text, sound: null };
 
@@ -354,4 +415,4 @@ export function extractAudioTag(text) {
   return { cleanText, sound };
 }
 
-export default { SOUND_EFFECTS, extractAudioTag, ensureSoundAssets };
+export default { SOUND_EFFECTS, extractAudioTag, extractAudioTagAsync, resolveSoundAttachment, ensureSoundAssets };
