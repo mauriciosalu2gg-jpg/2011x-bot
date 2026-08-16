@@ -79,8 +79,8 @@ Extrae información en formato JSON con la siguiente estructura estricta:
   "facts": ["hecho sobre el usuario 1", "hecho 2"],
   "preferences": ["gusto o disgusto mencionado"],
   "topic": "título corto del tema tratado (o null)",
-  "area": "área de interés, juego o proyecto mencionado (o null)",
-  "roleStatus": "Rol de la persona (ej: Jugador de Outcome Memories, Programador, Amigo, Víctima) o null"
+  "area": "área de interés, pasatiempo o proyecto mencionado (o null)",
+  "roleStatus": "Ocupación o rol de la persona (ej: Programador, Diseñador, Gamer, Amigo, Estudiante) o null"
 }
 
 Si el mensaje no contiene datos personales o de temas nuevos, devuelve: {"facts": [], "preferences": [], "topic": null, "area": null, "roleStatus": null}.
@@ -90,9 +90,17 @@ Devuelve SOLO el objeto JSON sin formato adicional.`;
     const raw = await queryMemoryAI(prompt, 'Responde exclusivamente con un JSON válido.');
     if (!raw) return null;
 
-    const cleanJson = raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-    const parsed = JSON.parse(cleanJson);
-    return parsed;
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return {
+      facts: Array.isArray(parsed.facts) ? parsed.facts.filter(f => typeof f === 'string' && f.trim()) : [],
+      preferences: Array.isArray(parsed.preferences) ? parsed.preferences.filter(p => typeof p === 'string' && p.trim()) : [],
+      topic: typeof parsed.topic === 'string' && parsed.topic.trim() ? parsed.topic.trim() : null,
+      area: typeof parsed.area === 'string' && parsed.area.trim() ? parsed.area.trim() : null,
+      roleStatus: typeof parsed.roleStatus === 'string' && parsed.roleStatus.trim() ? parsed.roleStatus.trim() : null,
+    };
   } catch (err) {
     return null;
   }

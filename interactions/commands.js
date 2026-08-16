@@ -10,15 +10,15 @@ import { isFirebaseReady } from '../database/firebase.js';
 export const commandDefinitions = [
   new SlashCommandBuilder()
     .setName('ping')
-    .setDescription('Comprueba si 2011X está al acecho'),
+    .setDescription('Comprueba la latencia de 2011X'),
 
   new SlashCommandBuilder()
     .setName('memoria')
-    .setDescription('Revisa qué información tiene 2011X guardada sobre ti en su dimensión'),
+    .setDescription('Revisa qué información tiene 2011X guardada sobre ti'),
 
   new SlashCommandBuilder()
     .setName('olvidar')
-    .setDescription('Purga tus datos y memoria de la dimensión de 2011X'),
+    .setDescription('Purga todos tus datos y memoria de la base de datos'),
 
   new SlashCommandBuilder()
     .setName('estado')
@@ -36,7 +36,7 @@ export async function registerCommands(client) {
 
   const rest = new REST({ version: '10' }).setToken(token);
   try {
-    // 1. Purgar comandos antiguos de servidores específicos (Novarito solía registrar comandos de guild)
+    // 1. Purgar comandos antiguos de servidores específicos
     if (client.guilds?.cache) {
       for (const [guildId, guild] of client.guilds.cache) {
         try {
@@ -62,59 +62,70 @@ export async function handleCommandInteraction(interaction) {
 
   const { commandName, user } = interaction;
 
-  if (commandName === 'ping') {
-    const ping = interaction.client.ws.ping;
-    await interaction.reply({
-      content: `Mi latencia actual es de **${ping}ms**. ¿Eso es todo lo que querías saber?`,
-      ephemeral: false
-    });
-  } else if (commandName === 'memoria') {
-    await interaction.deferReply({ ephemeral: true });
-    const mem = await getFullDistributedMemory(user.id, interaction.guildId);
-    const facts = mem.facts || [];
-    const preferences = mem.preferences || [];
-    const topics = mem.topics || [];
-    const areas = mem.areas || [];
-    const roleStatus = mem.identity?.roleStatus || 'Usuario';
+  try {
+    if (commandName === 'ping') {
+      const ping = Math.max(0, interaction.client.ws.ping);
+      await interaction.reply({
+        content: `Mi latencia actual es de **${ping}ms**. ¿Eso es todo lo que querías saber?`,
+        ephemeral: false
+      });
+    } else if (commandName === 'memoria') {
+      await interaction.deferReply({ ephemeral: true });
+      const mem = await getFullDistributedMemory(user.id, interaction.guildId);
+      const facts = mem.facts || [];
+      const preferences = mem.preferences || [];
+      const topics = mem.topics || [];
+      const areas = mem.areas || [];
+      const roleStatus = mem.identity?.roleStatus || 'Usuario';
 
-    let msg = `### 📋 Expediente de ${user.username.toUpperCase()}:\n`;
-    msg += `- **Estado**: ${roleStatus}\n`;
+      let msg = `### 📋 Datos registrados de ${user.username.toUpperCase()}:\n`;
+      msg += `- **Estado**: ${roleStatus}\n`;
 
-    if (facts.length > 0) {
-      msg += `\n**📜 Hechos conocidos**:\n${facts.map((f, i) => `• ${f}`).join('\n')}\n`;
-    }
-    if (preferences.length > 0) {
-      msg += `\n**🎯 Preferencias / Gustos**:\n${preferences.map((p, i) => `• ${p}`).join('\n')}\n`;
-    }
-    if (topics.length > 0) {
-      msg += `\n**💬 Temas hablados**:\n${topics.map(t => `• ${t.title}`).join('\n')}\n`;
-    }
-    if (areas.length > 0) {
-      msg += `\n**🏰 Áreas de interés**:\n${areas.map(a => `• ${a.name}`).join('\n')}\n`;
-    }
+      if (facts.length > 0) {
+        msg += `\n**📜 Hechos conocidos**:\n${facts.map((f, i) => `• ${f}`).join('\n')}\n`;
+      }
+      if (preferences.length > 0) {
+        msg += `\n**🎯 Preferencias / Gustos**:\n${preferences.map((p, i) => `• ${p}`).join('\n')}\n`;
+      }
+      if (topics.length > 0) {
+        msg += `\n**💬 Temas hablados**:\n${topics.map(t => `• ${t.title}`).join('\n')}\n`;
+      }
+      if (areas.length > 0) {
+        msg += `\n**📌 Áreas de interés**:\n${areas.map(a => `• ${a.name}`).join('\n')}\n`;
+      }
 
-    if (facts.length === 0 && preferences.length === 0 && topics.length === 0) {
-      msg += `\nTodavía no tengo información guardada sobre ti. Habla más conmigo en el chat para registrar datos.`;
+      if (facts.length === 0 && preferences.length === 0 && topics.length === 0) {
+        msg += `\nTodavía no tengo información guardada sobre ti. Habla más conmigo en el chat para registrar datos.`;
+      }
+
+      await interaction.editReply({ content: msg.trim() });
+    } else if (commandName === 'olvidar') {
+      await interaction.deferReply({ ephemeral: true });
+      await purgeEntireUserMemory(user.id, interaction.guildId);
+      await interaction.editReply({
+        content: `He eliminado completamente toda tu memoria y datos de la base de datos.`
+      });
+    } else if (commandName === 'estado') {
+      const uptimeSec = Math.floor(process.uptime());
+      const hours = Math.floor(uptimeSec / 3600);
+      const mins = Math.floor((uptimeSec % 3600) / 60);
+      const secs = uptimeSec % 60;
+      const uptimeStr = `${hours}h ${mins}m ${secs}s`;
+      const ping = Math.max(0, interaction.client.ws.ping);
+
+      await interaction.reply({
+        content: `### ⚙️ ESTADO DE 2011X BOT:\n- **Entidad**: 2011X\n- **Uptime**: ${uptimeStr}\n- **Firebase RTDB**: ${isFirebaseReady() ? '🟢 Conectado' : '🔴 Modo Local'}\n- **Servidores Activos**: ${interaction.client.guilds.cache.size}\n- **Latencia Gateway**: ${ping}ms`,
+        ephemeral: true
+      });
     }
-
-    await interaction.editReply({ content: msg.trim() });
-  } else if (commandName === 'olvidar') {
-    await interaction.deferReply({ ephemeral: true });
-    await purgeEntireUserMemory(user.id, interaction.guildId);
-    await interaction.editReply({
-      content: `He eliminado completamente toda tu memoria y datos de la base de datos.`
-    });
-  } else if (commandName === 'estado') {
-    const uptimeSec = Math.floor(process.uptime());
-    const hours = Math.floor(uptimeSec / 3600);
-    const mins = Math.floor((uptimeSec % 3600) / 60);
-    const secs = uptimeSec % 60;
-    const uptimeStr = `${hours}h ${mins}m ${secs}s`;
-
-    await interaction.reply({
-      content: `### ⚙️ ESTADO DE 2011X BOT:\n- **Entidad**: 2011X\n- **Uptime**: ${uptimeStr}\n- **Firebase RTDB**: ${isFirebaseReady() ? '🟢 Conectado' : '🔴 Modo Local'}\n- **Servidores Activos**: ${interaction.client.guilds.cache.size}\n- **Latencia Gateway**: ${interaction.client.ws.ping}ms`,
-      ephemeral: true
-    });
+  } catch (err) {
+    console.error(`[commands] Error ejecutando /${commandName}:`, err.message);
+    const errorMsg = 'Ocurrió un error al procesar el comando.';
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: errorMsg }).catch(() => {});
+    } else {
+      await interaction.reply({ content: errorMsg, ephemeral: true }).catch(() => {});
+    }
   }
 }
 

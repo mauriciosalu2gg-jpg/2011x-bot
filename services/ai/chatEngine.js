@@ -18,7 +18,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 10000) {
   }
 }
 
-async function tryGroqModel(apiKey, model, messages, systemPrompt, temperature = 0.82) {
+async function tryGroqModel(apiKey, model, messages, systemPrompt, temperature = 0.75) {
   if (!apiKey) return null;
 
   const fullMessages = [
@@ -36,9 +36,9 @@ async function tryGroqModel(apiKey, model, messages, systemPrompt, temperature =
       body: JSON.stringify({
         model,
         messages: fullMessages,
-        temperature: 0.82,
-        presence_penalty: 0.35,
-        frequency_penalty: 0.40,
+        temperature,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.35,
         max_tokens: 500,
       })
     }, 9000);
@@ -59,7 +59,7 @@ async function tryGroqModel(apiKey, model, messages, systemPrompt, temperature =
   return null;
 }
 
-async function tryOpenRouterModel(apiKey, model, messages, systemPrompt, temperature = 0.82) {
+async function tryOpenRouterModel(apiKey, model, messages, systemPrompt, temperature = 0.75) {
   if (!apiKey) return null;
 
   const fullMessages = [
@@ -79,9 +79,9 @@ async function tryOpenRouterModel(apiKey, model, messages, systemPrompt, tempera
       body: JSON.stringify({
         model,
         messages: fullMessages,
-        temperature: 0.82,
-        presence_penalty: 0.35,
-        frequency_penalty: 0.40,
+        temperature,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.35,
         max_tokens: 500,
       })
     }, 10000);
@@ -105,7 +105,7 @@ async function tryOpenRouterModel(apiKey, model, messages, systemPrompt, tempera
 /**
  * Consulta dinámica con cascada automática multi-modelo y multi-proveedor.
  */
-export async function generateChatResponse(messages, systemPrompt, temperature = 0.82) {
+export async function generateChatResponse(messages, systemPrompt, temperature = 0.75) {
   // Lista de modelos pequeños y rápidos de Groq
   const groqModels = [
     config.ai.primaryGroqModel || 'llama-3.1-8b-instant',

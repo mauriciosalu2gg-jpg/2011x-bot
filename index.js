@@ -55,12 +55,9 @@ client.once('ready', async () => {
   console.log(`[2011x] Servidores conectados: ${client.guilds.cache.size}`);
 
   client.user.setPresence({
-    activities: [{ name: 'Outcome Memories | I\'m 2011X, play my games.', type: 0 }],
+    activities: [{ name: '2011X | X', type: 0 }],
     status: 'dnd',
   });
-
-  // Asegurar restauración de audios en Render
-  ensureSoundAssets().catch(() => {});
 
   registerCommands(client).catch(err => {
     console.warn('[2011x] Advertencia al registrar comandos slash:', err.message);
@@ -76,16 +73,37 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ── Sanitizador Estricto: Cero comillas dobles, Cero asteriscos y Cero puntos al inicio ──
+// ── Sanitizador Estricto: Cero comillas dobles, Cero asteriscos, Cero roleplay teatral ──
 function sanitizeBotResponse(rawText) {
   if (!rawText) return '';
   return rawText
-    .replace(/\*[^*]+\*/g, '') // Elimina *sonríe sádicamente*, *se llena de energía...*
-    .replace(/_([^_]+)_/g, '$1') // Quita itálicas narrativas
-    .replace(/["“”«»]/g, '') // Quita todas las comillas
-    .replace(/^[\s\.\,\:\;\-\_]+/, '') // Quita puntos, comas o guiones al INICIO
+    .replace(/\*[^*]+\*/g, '') // Elimina acciones narrativas entre asteriscos (*sonríe*, etc.)
+    .replace(/_([^_]+)_/g, '$1') // Quita itálicas
+    .replace(/\([^)]*(?:sonríe|mira|desaparece|estática|vacío|risas?|suspiro|camina|observa)[^)]*\)/gi, '') // Quita narraciones teatrales entre paréntesis
+    .replace(/"/g, '') // Quita todas las comillas dobles
+    .replace(/“|”/g, '') // Quita comillas tipográficas
+    .replace(/^[\s\.\,\:\;\-]+/, '') // Quita signos residuales al inicio
     .replace(/\s{2,}/g, ' ') // Quita espacios duplicados
     .trim();
+}
+
+// ── Cálculo de Fragmentos de Escritura Fluida (Por Palabras Completas) ──
+function getTypingChunks(text) {
+  if (!text || text.length <= 45) return [text];
+
+  const words = text.split(' ');
+  if (words.length <= 4) return [text];
+
+  // Divide en 3 etapas naturales sin cortar palabras a la mitad
+  const step1Count = Math.max(2, Math.floor(words.length * 0.35));
+  const step2Count = Math.max(step1Count + 2, Math.floor(words.length * 0.70));
+
+  const chunk1 = words.slice(0, step1Count).join(' ') + ' ▌';
+  const chunk2 = words.slice(0, step2Count).join(' ') + ' ▌';
+  const chunkFinal = text;
+
+  if (chunk1 === chunk2) return [chunk1, chunkFinal];
+  return [chunk1, chunk2, chunkFinal];
 }
 
 // ── Función de Envío con Animación de Escritura Fluida en Discord ──
@@ -96,10 +114,10 @@ async function sendBotMessage(message, fullText, sound = null) {
   if (!cleanedText) return;
 
   const finalContent = cleanedText.slice(0, 1950);
-  const len = finalContent.length;
+  const chunks = getTypingChunks(finalContent);
 
-  // Si el mensaje es muy corto (menos de 15 caracteres), enviar directo
-  if (len < 15) {
+  // Si el mensaje es corto (1 solo chunk), enviar directo sin parpadeos innecesarios
+  if (chunks.length === 1) {
     const payload = { content: finalContent, allowedMentions: { repliedUser: false } };
     if (soundFile.length > 0) payload.files = soundFile;
     try {
@@ -110,10 +128,9 @@ async function sendBotMessage(message, fullText, sound = null) {
     return;
   }
 
-  // Paso 1: Enviar primer fragmento con cursor parpadeante (▌) y archivo de audio
-  const initialSlice = finalContent.slice(0, Math.max(4, Math.floor(len * 0.40))) + ' ▌';
+  // Paso 1: Enviar primer fragmento fluido con cursor parpadeante (▌) y archivo de audio
   const initialPayload = {
-    content: initialSlice,
+    content: chunks[0],
     allowedMentions: { repliedUser: false }
   };
   if (soundFile.length > 0) {
@@ -123,20 +140,29 @@ async function sendBotMessage(message, fullText, sound = null) {
   let sentMsg = null;
   try {
     sentMsg = await message.reply(initialPayload);
-    console.log(`[discord] ✓ Escribiendo respuesta a ${message.author.username}...`);
   } catch (err) {
     try {
       sentMsg = await message.channel.send(initialPayload);
     } catch (sendErr) {
-      console.error('[discord] ❌ Error enviando:', sendErr.message);
+      console.error('[discord] ❌ Error enviando mensaje inicial:', sendErr.message);
       return;
     }
   }
 
   if (!sentMsg) return;
 
-  // Paso 2: Animación fluida de tipeo a texto completo
-  await new Promise(r => setTimeout(r, 360));
+  // Paso 2: Si hay paso intermedio (~70% de palabras), editar fluidamente
+  if (chunks.length === 3) {
+    await new Promise(r => setTimeout(r, 400));
+    try {
+      await sentMsg.edit({ content: chunks[1] });
+    } catch (e) {
+      // Ignorar si el mensaje fue borrado o hay rate limit menor
+    }
+  }
+
+  // Paso 3: Revelar texto completo final sin cursor
+  await new Promise(r => setTimeout(r, 420));
   await sentMsg.edit({ content: finalContent }).catch(() => {});
 }
 
@@ -168,10 +194,19 @@ client.on('messageCreate', async (message) => {
 
   const isDM = !message.guild;
   const isDirectlyMentioned = message.mentions.users.has(client.user.id);
-  const isRepliedToBot = Boolean(
-    message.reference && 
-    (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === client.user.id
-  );
+  
+  // Optimización de comprobación de referencia a mensaje previo (usar caché primero)
+  let isRepliedToBot = false;
+  if (message.reference?.messageId) {
+    const cachedMsg = message.channel.messages.cache.get(message.reference.messageId);
+    if (cachedMsg) {
+      isRepliedToBot = cachedMsg.author?.id === client.user.id;
+    } else {
+      const fetchedMsg = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
+      isRepliedToBot = fetchedMsg?.author?.id === client.user.id;
+    }
+  }
+
   const isPrefix = /^!(?:2011x|x)\b/i.test(message.content);
   const isNameCall = /\b(?:2011x|2011-x|2011\s*x|2011)\b/i.test(message.content);
 
@@ -197,23 +232,27 @@ client.on('messageCreate', async (message) => {
 
   console.log(`[messageCreate] 📨 Mensaje de ${displayName} (${userId}) en servidor ${guildId || 'DM'}: "${cleanContent}"`);
 
-  try {
-    await message.channel.sendTyping().catch(() => {});
+  // Mantener indicador de escritura en Discord mientras procesa la IA
+  await message.channel.sendTyping().catch(() => {});
+  const typingInterval = setInterval(() => {
+    message.channel.sendTyping().catch(() => {});
+  }, 8000);
 
+  try {
     // 1. Obtener memoria distribuida completa desde Realtime Database
     const memory = await getFullDistributedMemory(userId, guildId).catch(err => {
       console.warn('[memory] Error obteniendo memoria, usando fallback:', err.message);
       return { facts: [], preferences: [], topics: [], messages: [] };
     });
 
-    // 2. Procesar medidor interno e invisible de furia (0% a 100%, boost grupal y duración de 1 min)
+    // 2. Procesar medidor interno de furia
     const rageState = await processRageFromMessage(userId, cleanContent, guildId);
 
-    // 3. Determinar longitud dinámica de respuesta (50% medio, 25% corto, 25% largo)
+    // 3. Determinar longitud dinámica de respuesta
     const roll = Math.random();
-    let lengthMode = 'medium'; // 50% chance
+    let lengthMode = 'medium';
     if (cleanContent.length < 35 || cleanContent.split(/\s+/).length <= 5) {
-      lengthMode = 'short'; // Mensajes cortos del usuario reciben respuesta corta y directa
+      lengthMode = 'short';
     } else {
       if (roll < 0.35) {
         lengthMode = 'short';
@@ -231,13 +270,13 @@ client.on('messageCreate', async (message) => {
 
     const systemPrompt = buildSystemPromptWithContext({
       userFacts: combinedFacts,
-      mood: (isRage || rageState.isRageActive) ? 'rage' : 'sadistic',
+      mood: (isRage || rageState.isRageActive) ? 'rage' : 'normal',
       responseLength: lengthMode,
       ragePercentage: rageState.ragePercentage,
       isRageActive: rageState.isRageActive,
     });
 
-    // 3. Estructurar historial conversacional continuo optimizado (últimos 8 mensajes para ahorrar tokens)
+    // 4. Estructurar historial conversacional continuo optimizado (últimos 8 mensajes)
     const history = [
       ...(memory.messages || []).slice(-8).map(m => ({
         role: m.role,
@@ -246,31 +285,33 @@ client.on('messageCreate', async (message) => {
       { role: 'user', content: `${displayName || username}: ${cleanContent}` }
     ];
 
-    // 4. Generar respuesta con la IA Principal
+    // 5. Generar respuesta con la IA Principal
     const aiResult = await generateChatResponse(history, systemPrompt);
     const rawResponseText = aiResult.text;
 
-    // Extraer etiquetas de audio con resolución asíncrona garantizada desde Firebase RTDB
+    // Extraer etiquetas de audio con resolución asíncrona
     const { cleanText: responseText, sound } = await extractAudioTagAsync(rawResponseText);
 
-    // 5. Guardar en Realtime Database el historial de conversación con nombres
+    // 6. Guardar en Realtime Database el historial de conversación con nombres
     await appendConversationMessage(userId, 'user', cleanContent, guildId, displayName || username);
     await appendConversationMessage(userId, 'assistant', responseText, guildId, '2011X');
 
-    // 6. Enviar respuesta limpia y directa en Discord
+    // Limpiar intervalo de typing antes de enviar
+    clearInterval(typingInterval);
+
+    // 7. Enviar respuesta limpia y con animación fluida
     await sendBotMessage(message, responseText, sound);
 
-    // 7. Extraer hechos, temas, gustos y roles en segundo plano en Realtime Database
+    // 8. Extraer hechos, temas y gustos en segundo plano
     processMessageInMemoryAsync(userId, cleanContent, { username, displayName });
 
   } catch (err) {
+    clearInterval(typingInterval);
     if (err.message === 'RATE_LIMIT_ALL_PROVIDERS' || err.message?.includes('Rate limit') || err.message?.includes('429')) {
-      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('(Una distorsión estática resuena en el aire y la presencia de 2011X se desvanece temporalmente entre las sombras del Vacío...) [AUDIO:glitch]');
-      await sendBotMessage(message, vanishText, glitchSound);
+      await sendBotMessage(message, 'Hay demasiada saturación en las conexiones ahora mismo. Vuelve a intentarlo en un momento.');
     } else {
       console.error('[messageCreate] Error procesando respuesta de 2011X:', err);
-      const { cleanText: vanishText, sound: glitchSound } = await extractAudioTagAsync('(El canal se distorsiona con estática y la presencia de 2011X desaparece en la oscuridad...) [AUDIO:glitch]');
-      await sendBotMessage(message, vanishText, glitchSound);
+      await sendBotMessage(message, 'Ocurrió un error inesperado al procesar eso. Habla de nuevo.');
     }
   }
 });

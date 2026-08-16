@@ -19,7 +19,15 @@ export async function getUserRageState(scopeId) {
     try {
       const snapshot = await rtdb.ref(`memory/rage/${scopeId}`).once('value');
       if (snapshot.exists()) {
-        return snapshot.val();
+        const val = snapshot.val();
+        if (val && typeof val === 'object') {
+          return {
+            percentage: Number(val.percentage) || 0,
+            rageActive: Boolean(val.rageActive),
+            rageExpiresAt: Number(val.rageExpiresAt) || 0,
+            lastUpdated: Number(val.lastUpdated) || Date.now()
+          };
+        }
       }
     } catch (err) {
       // fallback a RAM
@@ -102,7 +110,7 @@ export async function processRageFromMessage(userId, messageContent, guildId = n
 
   // 2. Detección de disparadores de ira
   const isExplicitRageTrigger = /haz\s*rage|activa\s*(?:tu\s*)?furia|rage\s*mode|modo\s*furia/i.test(text);
-  const isAttack = /\*(?:le\s+|te\s+)?(?:pega|golpea|dispara|acuchilla|apuñala|patea|tira|empuja|ataca|daña|corta|quema|revienta|parte|martillazo)\*|te\s+(?:pego|golpeo|disparo|apuesto|mato|parto)|drop\s*dash|spindash|martillo|chaos\s*spear/i.test(text);
+  const isAttack = /\*(?:le\s+|te\s+)?(?:pega|golpea|dispara|acuchilla|apuñala|patea|tira|empuja|ataca|daña|corta|quema|revienta|parte|martillazo)\*|te\s+(?:pego|golpeo|disparo|mato|parto)|drop\s*dash|spindash|martillo|chaos\s*spear/i.test(text);
   const isHeavyInsult = /c[aá]llate|est[uú]pido|in[uú]til|idiota|pendejo|mierda|puto|puta|perra|maldito|imb[eé]cil|tarado|asqueroso|basura|mu[eé]rete/i.test(text);
   const isTaunt = /eres\s+(?:d[eé]bil|malo|falso|in[uú]til)|no\s+puedes|te\s+gano|le\s+dir[eé]\s+a|miedoso|cobarde/i.test(text);
 

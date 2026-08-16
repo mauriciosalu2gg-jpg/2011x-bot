@@ -5,7 +5,7 @@
 // ├── /memory/topics/{userId}          (Temas detectados y cerrados con resumen)
 // ├── /memory/areas/{userId}           (Áreas de interés, proyectos, servidores)
 // ├── /memory/historial/{userId_scope} (Historial de mensajes rotativo)
-// └── /memory/identities/{userId}      (Mapeo de identidades y rol en la dimensión)
+// └── /memory/identities/{userId}      (Mapeo de identidades y rol de usuario)
 // ═══════════════════════════════════════════════════════════════
 
 import { rtdb } from '../../database/firebase.js';
@@ -33,6 +33,14 @@ function getLocalUserFallback(userId) {
   return memoryFallback.users.get(userId);
 }
 
+function sanitizeStringArray(raw) {
+  if (!raw) return [];
+  const arr = Array.isArray(raw) ? raw : Object.values(raw);
+  return arr
+    .filter(item => typeof item === 'string' && item.trim().length > 0)
+    .map(s => s.trim());
+}
+
 // ── 1. USUARIOS & PERFILES (/memory/users/{userId}) ───────────
 
 export async function getUserProfile(userId) {
@@ -41,13 +49,13 @@ export async function getUserProfile(userId) {
   try {
     const snapshot = await rtdb.ref(`memory/users/${userId}`).once('value');
     if (snapshot.exists()) {
-      const data = snapshot.val();
+      const data = snapshot.val() || {};
       return {
         discordId: userId,
-        names: Array.isArray(data.names) ? data.names : (data.names ? Object.values(data.names) : []),
-        nicknames: Array.isArray(data.nicknames) ? data.nicknames : (data.nicknames ? Object.values(data.nicknames) : []),
-        facts: Array.isArray(data.facts) ? data.facts : (data.facts ? Object.values(data.facts) : []),
-        preferences: Array.isArray(data.preferences) ? data.preferences : (data.preferences ? Object.values(data.preferences) : []),
+        names: sanitizeStringArray(data.names),
+        nicknames: sanitizeStringArray(data.nicknames),
+        facts: sanitizeStringArray(data.facts),
+        preferences: sanitizeStringArray(data.preferences),
         updatedAt: data.updatedAt || new Date().toISOString(),
       };
     }
@@ -61,16 +69,20 @@ export async function getUserProfile(userId) {
 export async function updateUserProfile(userId, { name, nickname, newFacts = [], newPreferences = [] } = {}) {
   const profile = await getUserProfile(userId);
 
-  if (name && !profile.names.includes(name)) profile.names.push(name);
-  if (nickname && !profile.nicknames.includes(nickname)) profile.nicknames.push(nickname);
+  if (name && typeof name === 'string' && name.trim() && !profile.names.includes(name.trim())) {
+    profile.names.push(name.trim());
+  }
+  if (nickname && typeof nickname === 'string' && nickname.trim() && !profile.nicknames.includes(nickname.trim())) {
+    profile.nicknames.push(nickname.trim());
+  }
 
-  for (const f of newFacts) {
+  for (const f of sanitizeStringArray(newFacts)) {
     if (!profile.facts.some(ef => ef.toLowerCase() === f.toLowerCase())) {
       profile.facts.push(f);
     }
   }
 
-  for (const p of newPreferences) {
+  for (const p of sanitizeStringArray(newPreferences)) {
     if (!profile.preferences.some(ep => ep.toLowerCase() === p.toLowerCase())) {
       profile.preferences.push(p);
     }
@@ -197,8 +209,8 @@ export async function appendConversationMessage(userId, role, content, guildId =
   const key = getHistorialKey(userId, guildId);
   const newMsg = {
     role,
-    content,
-    ...(username ? { username } : {}),
+    content: String(content || '').trim(),
+    ...(username ? { username: String(username).trim() } : {}),
     createdAt: new Date().toISOString()
   };
 
@@ -231,7 +243,7 @@ export async function getUserIdentity(userId) {
   }
 }
 
-export async function updateUserIdentity(userId, { username, displayName, roleStatus = 'Juguete Mortal', threatLevel = 'Bajo' } = {}) {
+export async function updateUserIdentity(userId, { username, displayName, roleStatus = 'Usuario', threatLevel = 'Normal' } = {}) {
   const existing = (await getUserIdentity(userId)) || {
     discordId: userId,
     usernames: [],
@@ -241,8 +253,12 @@ export async function updateUserIdentity(userId, { username, displayName, roleSt
     firstEncounter: new Date().toISOString()
   };
 
-  if (username && !existing.usernames.includes(username)) existing.usernames.push(username);
-  if (displayName && !existing.displayNames.includes(displayName)) existing.displayNames.push(displayName);
+  if (username && typeof username === 'string' && !existing.usernames.includes(username.trim())) {
+    existing.usernames.push(username.trim());
+  }
+  if (displayName && typeof displayName === 'string' && !existing.displayNames.includes(displayName.trim())) {
+    existing.displayNames.push(displayName.trim());
+  }
   existing.roleStatus = roleStatus || existing.roleStatus;
   existing.threatLevel = threatLevel || existing.threatLevel;
   existing.lastSeen = new Date().toISOString();
