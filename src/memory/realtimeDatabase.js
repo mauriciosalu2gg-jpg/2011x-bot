@@ -1,5 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // 🔥 Novarito Discord Bot — Firebase Realtime Database Connector
+// Isolated Schema under /novarito/memory and /novarito/assets
 // ═══════════════════════════════════════════════════════════════
 
 import admin from 'firebase-admin';
@@ -30,6 +31,7 @@ export function initFirebase() {
   let { projectId, clientEmail, privateKey, databaseURL } = config.firebase;
   let cleanedKey = cleanPrivateKey(privateKey);
 
+  // Fallback: Buscar archivo JSON de credenciales de servicio en storage
   if (!projectId || !clientEmail || !cleanedKey) {
     const jsonCandidates = [
       path.join(__dirname, '..', '..', '..', '..', 'storage', 'alero-company-works-firebase-adminsdk-fbsvc-28f5b992cf.json'),
@@ -93,6 +95,7 @@ export class RealtimeDatabaseClient {
     return !!rtdb;
   }
 
+  // --- Usuarios: /novarito/memory/users/{userId} ---
   async getUser(userId) {
     if (!rtdb || !userId) return null;
     try {
@@ -122,6 +125,7 @@ export class RealtimeDatabaseClient {
     }
   }
 
+  // --- Servidores: /novarito/memory/guilds/{guildId} ---
   async getGuild(guildId) {
     if (!rtdb || !guildId) return null;
     try {
@@ -148,6 +152,7 @@ export class RealtimeDatabaseClient {
     }
   }
 
+  // --- Assets: /novarito/assets/{userId} ---
   async saveAsset(userId, assetData) {
     if (!rtdb || !userId) return false;
     try {
@@ -189,4 +194,11 @@ export async function closeFirebase() {
   if (admin.apps && admin.apps.length) {
     try {
       await Promise.all(admin.apps.map(app => app.delete().catch(() => {})));
-    } catch {}\n    rtdb = null;\n    firestore = null;\n    initialized = false;\n  }\n}\n\nexport default RealtimeDatabaseClient;\n
+    } catch {}
+    rtdb = null;
+    firestore = null;
+    initialized = false;
+  }
+}
+
+export default RealtimeDatabaseClient;
