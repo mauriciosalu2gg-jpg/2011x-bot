@@ -16,7 +16,10 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-if not exist node_modules (\n    echo [INFO] Instalando dependencias npm...\n    npm install\n)
+if not exist node_modules (
+    echo [INFO] Instalando dependencias npm...
+    npm install
+)
 
 echo [INFO] Iniciando Novarito Bot (Gateway, Express WebServer & AI Router)...
 node index.js
