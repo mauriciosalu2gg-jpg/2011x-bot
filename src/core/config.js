@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Cargar .env desde múltiples rutas potenciales
 function loadEnvironment() {
   const envCandidates = [
     path.join(__dirname, '..', '..', '.env'),
@@ -48,13 +49,15 @@ export const config = {
     openRouterMemoryApiKey: process.env.OPENROUTER_MEMORY_API_KEY || process.env.OPENROUTER_API_KEY || '',
     huggingFaceApiKey: process.env.HUGGINGFACE_API_KEY || '',
 
+    // Modelos recomendados y configurables
     models: {
       primaryGroq: process.env.PRIMARY_GROQ_MODEL || 'llama-3.3-70b-versatile',
       fallbackGroq: process.env.FALLBACK_GROQ_MODEL || 'llama-3.1-8b-instant',
       groqReasoning: process.env.REASONING_GROQ_MODEL || 'deepseek-r1-distill-llama-70b',
-      openRouterFast: process.env.PRIMARY_OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
-      openRouterLight: 'google/gemini-2.0-flash-lite:free',
+      openRouterFast: process.env.PRIMARY_OPENROUTER_MODEL || 'meta-llama/llama-3.2-3b-instruct:free',
+      openRouterLight: 'google/gemini-2.0-flash-exp:free',
       openRouterReasoning: 'deepseek/deepseek-r1:free',
+      openRouterCode: 'qwen/qwen-2.5-coder-32b-instruct:free',
       huggingFace: process.env.HUGGINGFACE_MODEL || 'meta-llama/Meta-Llama-3-8B-Instruct',
       memoryAI: process.env.MEMORY_AI_MODEL || 'llama-3.1-8b-instant',
     },
