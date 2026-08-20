@@ -38,6 +38,9 @@ async function runTestSuite() {
   console.log('🌟 NOVARITO BOT v2.0 COMPREHENSIVE TEST SUITE');
   console.log('======================================================\n');
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 1: Emojis Catalog & Canonical Discord IDs
+  // ─────────────────────────────────────────────────────────────
   console.log('1. Emojis Catalog & Canonical Discord IDs');
   assert('Anim1 matches exact Discord custom ID', NOVARITO_EMOJIS.Anim1 === '<:Anim1:1534830863764684940>');
   assert('Anim2 matches exact Discord custom ID', NOVARITO_EMOJIS.Anim2 === '<:Anim2:1534830885285658645>');
@@ -54,7 +57,12 @@ async function runTestSuite() {
   assert('Unicode fallback returns emoji character', getEmoji('pensar', true) === '💭');
   assert('Unicode fallback for Anim1 returns symbol', getEmoji('Anim1', true) === '✨');
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 2: Animation Systems (System A vs System B)
+  // ─────────────────────────────────────────────────────────────
   console.log('\n2. Animation Systems (System A vs System B)');
+
+  // System A: Dot Animator
   let dotOutput = '';
   const dotAnim = new DotAnimator((text) => { dotOutput = text; }, 50);
   dotAnim.start(EMOJIS.pensar, 'Procesando');
@@ -64,6 +72,7 @@ async function runTestSuite() {
   dotAnim.stop();
   assert('System A stops cleanly', !dotAnim.isRunning);
 
+  // System B: Deep Thinking Animator
   let deepOutput = '';
   const deepAnim = new DeepThinkingAnimator((text) => { deepOutput = text; }, 50);
   deepAnim.start();
@@ -76,6 +85,9 @@ async function runTestSuite() {
   deepAnim.stop();
   assert('System B stops cleanly', !deepAnim.isRunning);
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 3: High-Precision Processing Timer
+  // ─────────────────────────────────────────────────────────────
   console.log('\n3. Real Processing Timer');
   const timer = new ProcessingTimer();
   timer.start();
@@ -89,6 +101,9 @@ async function runTestSuite() {
   assert('Deep summary contains "Pensó profundamente por"', deepSummary.includes('Pensó profundamente por'));
   assert('Deep summary contains pensamientoprofundo emoji', deepSummary.includes('1534830807666131056'));
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 4: AI Router, Task Classification & 429 Failover Resiliency
+  // ─────────────────────────────────────────────────────────────
   console.log('\n4. AI Router, Classification & 429 Failover Resiliency');
   const router = new AIRouter();
   assert('Classifies reasoning task', router.classifyTask('Por favor piensa profundamente y demuestra matematicamente la solucion') === TaskType.REASONING);
@@ -96,6 +111,7 @@ async function runTestSuite() {
   assert('Classifies complex task', router.classifyTask('explica la diferencia entre microservicios y monolitos en detalle con ventajas y desventajas exhaustivas') === TaskType.COMPLEX);
   assert('Classifies casual chat', router.classifyTask('hola buenas tardes que tal') === TaskType.CASUAL);
 
+  // Circuit Breaker 429 Simulation
   const testBreaker = new CircuitBreaker('TestProvider', { failureThreshold: 2, cooldownDurationMs: 500 });
   assert('Circuit breaker starts CLOSED', testBreaker.isAvailable() === true);
   testBreaker.recordFailure({ status: 429, message: 'Too Many Requests' }, true);
@@ -106,7 +122,16 @@ async function runTestSuite() {
   testBreaker.recordSuccess();
   assert('Circuit breaker resets to CLOSED on success', testBreaker.isAvailable() === true);
 
-  const resilientRouter = new AIRouter();
+  // Router Fallover to Local Fallback simulation
+  let failoverEmitted = false;
+  let fromP = '', toP = '';
+  const resilientRouter = new AIRouter({
+    onFailover: (f, t) => {
+      failoverEmitted = true;
+      fromP = f;
+      toP = t;
+    }
+  });
   resilientRouter.groq.apiKey = '';
   resilientRouter.openRouter.apiKey = '';
   resilientRouter.huggingFace.apiKey = '';
@@ -115,9 +140,13 @@ async function runTestSuite() {
   assert('Router gracefully resolves to LocalFallback when cloud keys absent', fallbackResult.provider === 'LocalFallback');
   assert('Local fallback provides non-empty text', fallbackResult.text.length > 10);
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 5: Memory Isolation & Firebase Realtime Database
+  // ─────────────────────────────────────────────────────────────
   console.log('\n5. Memory Isolation & Storage Architecture');
   const memoryEngine = new MemoryEngine();
 
+  // Test User Isolation
   const testUserA = `user_alpha_${Date.now()}`;
   const testUserB = `user_beta_${Date.now()}`;
 
@@ -132,6 +161,7 @@ async function runTestSuite() {
   assert('User Beta memory contains Beta fact', betaMemory.includes('Roblox'));
   assert('User Beta memory DOES NOT contain Alpha fact', !betaMemory.includes('inteligencia artificial'));
 
+  // Test Asset Management
   await memoryEngine.saveAsset(testUserA, { type: 'image', name: 'Avatar', url: 'https://example.com/pic.png' });
   await memoryEngine.saveAsset(testUserA, { type: 'document', name: 'Doc', url: 'https://example.com/doc.pdf' });
 
@@ -141,25 +171,32 @@ async function runTestSuite() {
   assert('Retrieves all saved assets for user', allAssets.length === 2);
   assert('Filters assets by type correctly', imageAssets.length === 1 && imageAssets[0].type === 'image');
 
+  // Test Recent Chat History
   memoryEngine.addRecentMessage('channel_99', 'user', 'Hola Novarito');
   memoryEngine.addRecentMessage('channel_99', 'assistant', '¡Hola! ¿En qué te ayudo?');
   const recentMsgs = memoryEngine.getRecentMessages('channel_99');
   assert('Chat history stores messages in order', recentMsgs.length === 2 && recentMsgs[0].role === 'user');
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 6: Personality, 5 Moods & Code-Safe Humanizer
+  // ─────────────────────────────────────────────────────────────
   console.log('\n6. Personality, 5 Moods & Code-Safe Humanizer');
   const moodEngine = new MoodEngine();
 
+  // Test 5 Moods
   assert('Detects HAPPY mood on praise', moodEngine.detectMood('muchas gracias eres genial!') === Mood.HAPPY);
   assert('Detects PLAYFUL mood on jokes', moodEngine.detectMood('jajaja que buen meme xd') === Mood.PLAYFUL);
   assert('Detects CURIOUS mood on questions', moodEngine.detectMood('por que el cielo es azul? explica como funciona') === Mood.CURIOUS);
   assert('Detects CONCERNED mood on bugs/errors', moodEngine.detectMood('tengo un error critico en mi bot, ayuda') === Mood.CONCERNED);
   assert('Detects NEUTRAL/CALM mood on normal statements', moodEngine.detectMood('la capital de Francia es Paris.') === Mood.NEUTRAL || moodEngine.detectMood('la capital de Francia es Paris.') === Mood.CALM);
 
+  // Test PromptBuilder
   const systemPrompt = PromptBuilder.buildSystemPrompt(moodEngine, '[Usuario]: Desarrollador', 'Canal: #general');
   assert('PromptBuilder includes Novarito identity', systemPrompt.includes('Novarito'));
   assert('PromptBuilder embeds verified memory', systemPrompt.includes('[Usuario]: Desarrollador'));
   assert('PromptBuilder embeds server context', systemPrompt.includes('Canal: #general'));
 
+  // Test Code-Safe Humanizer (CRITICAL INTEGRITY INVARIANT)
   const codeBlockInput = 'De nada. Aquí tienes el código:\n```python\n# De nada.\nprint("Hello World https://example.com")\n```\nPor supuesto, úsalo bien.';
   const humanizedOutput = Humanizer.applyHumanization(codeBlockInput, false);
 
@@ -171,6 +208,9 @@ async function runTestSuite() {
   const humanizedUrl = Humanizer.applyHumanization(urlInput, false);
   assert('Humanizer does not mutate URLs', humanizedUrl.includes('https://github.com/novarito/bot'));
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 7: Express WebServer Endpoints (Render Service)
+  // ─────────────────────────────────────────────────────────────
   console.log('\n7. Express WebServer Endpoints (Render Service)');
   const mockClient = {
     ws: { status: 0, ping: 12 },
@@ -183,16 +223,19 @@ async function runTestSuite() {
   const webServer = startRenderServer(mockClient, testPort);
 
   try {
+    // 1. GET /health
     const healthRes = await fetch(`http://localhost:${testPort}/health`);
     assert('GET /health returns HTTP 200', healthRes.status === 200);
     const healthText = await healthRes.text();
     assert('GET /health body is "OK"', healthText === 'OK');
 
+    // 2. GET /ready (when connected)
     const readyRes = await fetch(`http://localhost:${testPort}/ready`);
     assert('GET /ready returns HTTP 200 when WS status is 0', readyRes.status === 200);
     const readyJson = await readyRes.json();
     assert('GET /ready returns ready: true', readyJson.ready === true);
 
+    // 3. GET / (metrics root)
     const rootRes = await fetch(`http://localhost:${testPort}/`);
     assert('GET / returns HTTP 200', rootRes.status === 200);
     const rootJson = await rootRes.json();
@@ -201,7 +244,8 @@ async function runTestSuite() {
     assert('Root JSON reports online status', rootJson.status === 'online');
     assert('Root JSON reports memory statistics', Boolean(rootJson.memory && rootJson.memory.rssMb));
 
-    mockClient.ws.status = 5;
+    // 4. GET /ready (when disconnected)
+    mockClient.ws.status = 5; // Disconnected
     const notReadyRes = await fetch(`http://localhost:${testPort}/ready`);
     assert('GET /ready returns HTTP 503 when disconnected', notReadyRes.status === 503);
   } catch (err) {
@@ -210,6 +254,9 @@ async function runTestSuite() {
     webServer.close();
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // TEST 8: Services & Interactions (Cooldowns & Status State)
+  // ─────────────────────────────────────────────────────────────
   console.log('\n8. Cooldowns Manager & Status State Machine');
   const cooldowns = new CooldownsManager();
   const cd1 = cooldowns.checkCooldown('user_100', 'chat', 1000);
@@ -218,6 +265,7 @@ async function runTestSuite() {
   assert('Immediate second request is on cooldown', cd2.onCooldown === true);
   assert('Remaining cooldown is positive', cd2.remainingMs > 0);
 
+  // Status Manager Mocking
   let lastChannelMessage = '';
   const mockChannel = {
     send: async (msg) => { lastChannelMessage = msg; return { edit: async (t) => { lastChannelMessage = t; } }; }
@@ -231,6 +279,9 @@ async function runTestSuite() {
   assert('StatusManager finalizes and appends processing timer', lastChannelMessage.includes('Hola Mauricio') && lastChannelMessage.includes('Pensó por'));
   statusMgr.destroy();
 
+  // ─────────────────────────────────────────────────────────────
+  // FINAL RESULTS SUMMARY
+  // ─────────────────────────────────────────────────────────────
   console.log('\n======================================================');
   console.log(`📊 NOVARITO TEST RESULTS: ${passed} PASADOS | ${failed} FALLIDOS`);
   console.log('======================================================\n');
