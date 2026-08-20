@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// 🌐 Novarito Discord Bot — Express Web Server (Render Healthcheck)
+// 🌐 Novarito Discord Bot — Express Web Server for Render
 // ═══════════════════════════════════════════════════════════════
 
 import express from 'express';
@@ -13,6 +13,8 @@ export function startRenderServer(discordClient, port = 3000) {
   app.get('/', (req, res) => {
     const isReady = discordClient?.ws?.status === 0;
     const { isReady: fbReady } = getDatabase();
+    const mem = process.memoryUsage();
+
     res.json({
       status: isReady ? 'online' : 'starting',
       name: 'Novarito Discord Bot',
@@ -22,6 +24,10 @@ export function startRenderServer(discordClient, port = 3000) {
       firebaseConnected: fbReady,
       guildsCount: discordClient?.guilds?.cache?.size || 0,
       ping: discordClient?.ws?.ping || 0,
+      memory: {
+        rssMb: (mem.rss / 1024 / 1024).toFixed(1),
+        heapUsedMb: (mem.heapUsed / 1024 / 1024).toFixed(1),
+      },
       timestamp: new Date().toISOString(),
     });
   });
@@ -32,9 +38,9 @@ export function startRenderServer(discordClient, port = 3000) {
 
   app.get('/ready', (req, res) => {
     if (discordClient?.ws?.status === 0) {
-      res.status(200).json({ ready: true, status: 'READY' });
+      res.status(200).json({ ready: true, status: 'CONNECTED' });
     } else {
-      res.status(503).json({ ready: false, status: discordClient?.ws?.status });
+      res.status(503).json({ ready: false, status: discordClient?.ws?.status ?? 'UNKNOWN' });
     }
   });
 
@@ -44,7 +50,7 @@ export function startRenderServer(discordClient, port = 3000) {
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      Logger.warn('RenderServer', `Puerto ${port} ocupado. Reubicando en puerto alternativo...`);
+      Logger.warn('RenderServer', `Puerto ${port} ocupado. Reubicando en puerto dinámico...`);
       const alt = app.listen(0, () => {
         Logger.info('RenderServer', `Servidor Express reubicado en puerto ${alt.address().port}`);
       });
@@ -57,4 +63,4 @@ export function startRenderServer(discordClient, port = 3000) {
   return server;
 }
 
-export default { startRenderServer };
+export default startRenderServer;

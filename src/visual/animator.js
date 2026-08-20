@@ -1,12 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // 🎬 Novarito Discord Bot — Visual Animation Engines
-// System A (Dot Animator: . -> .. -> ...)
-// System B (Deep Thinking Animator: Anim1 -> Anim2 -> Anim3)
 // ═══════════════════════════════════════════════════════════════
 
 import { EMOJIS } from './emojis.js';
 
-// ─── SYSTEM A: DOT ANIMATOR ────────────────────────────────────
 export class DotAnimator {
   constructor(updateCallback, intervalMs = 1000) {
     this.updateCallback = updateCallback;
@@ -56,7 +53,6 @@ export class DotAnimator {
   }
 }
 
-// ─── SYSTEM B: DEEP THINKING ANIMATOR ──────────────────────────
 export class DeepThinkingAnimator {
   constructor(updateCallback, intervalMs = 500) {
     this.updateCallback = updateCallback;
