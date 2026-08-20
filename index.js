@@ -47,7 +47,13 @@ async function bootstrap() {
   const server = startRenderServer(client, config.server.port);
 
   // 6. Registrar Dispatcher de Eventos del Bot
-  registerEvents(client, {\n    aiRouter,\n    memoryEngine,\n    moodEngine,\n    cooldownsManager,\n    supervisor,\n  });
+  registerEvents(client, {
+    aiRouter,
+    memoryEngine,
+    moodEngine,
+    cooldownsManager,
+    supervisor,
+  });
 
   // 7. Iniciar Gateway Watchdog y Conexión
   supervisor.startWatchdog(15000);
