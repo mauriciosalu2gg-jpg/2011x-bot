@@ -13,7 +13,7 @@ export class CircuitBreaker {
     this.consecutiveFailures = 0;
     this.totalRequests = 0;
     this.totalFailures = 0;
-    this.state = 'CLOSED';
+    this.state = 'CLOSED'; // 'CLOSED', 'OPEN', 'HALF_OPEN'
     this.onStateChange = options.onStateChange || null;
   }
 
@@ -46,8 +46,9 @@ export class CircuitBreaker {
     this.consecutiveFailures++;
 
     const is429 = isRateLimit || (err && (err.status === 429 || String(err.message).includes('429')));
+    const isModelNotFound = err && (err.status === 404 || err.status === 400 || String(err.message).includes('model') || String(err.message).includes('not exist'));
 
-    if (is429 || this.consecutiveFailures >= this.failureThreshold || this.state === 'HALF_OPEN') {
+    if (is429 || (!isModelNotFound && this.consecutiveFailures >= this.failureThreshold) || this.state === 'HALF_OPEN') {
       this.state = 'OPEN';
       const duration = is429 ? this.cooldownDurationMs : Math.min(this.cooldownDurationMs * this.consecutiveFailures, 180000);
       this.cooldownUntil = Date.now() + duration;
