@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: novarito-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NOVARITO_DEBUG
+        value: false
+      - key: NOVARITO_TYPING_EFFECT
+        value: true
+      - key: NOVARITO_HUMOR_LEVEL
+        value: 0.7

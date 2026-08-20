@@ -1,12 +1,14 @@
 {
-  "name": "2011x-bot",
-  "version": "1.0.0",
-  "description": "Discord Bot de 2011X (Outcome Memories) con IA multi-proveedor y memoria en Firebase Realtime Database",
+  "name": "novarito-bot",
+  "version": "2.0.0",
+  "description": "Novarito — Asistente de IA Avanzado para Discord con Memoria Persistente, Pensamiento Profundo Animado, Enrutamiento Dinámico de Modelos y Firebase",
   "main": "index.js",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node tests/test_novarito.mjs"
   },
   "dependencies": {
     "discord.js": "^14.17.3",
@@ -15,6 +17,6 @@
     "firebase-admin": "^12.1.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.0.0"
   }
 }
